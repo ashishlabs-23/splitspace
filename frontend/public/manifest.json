@@ -1,0 +1,17 @@
+{
+  "name": "SplitSpace",
+  "short_name": "SplitSpace",
+  "description": "Group expenses and debt settlement, simplified.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
