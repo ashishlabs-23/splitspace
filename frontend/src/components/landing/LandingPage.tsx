@@ -24,8 +24,14 @@ import {
   Receipt,
   Check,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  LogOut,
+  Activity,
+  X,
   PieChart,
 } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { Sheet, SheetBackdrop, SheetPanel } from "@/components/smoothui/sheet";
 import { api, Member } from "@/lib/api";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -100,6 +106,30 @@ export function LandingPage({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [grainKey, setGrainKey] = useState(0);
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const profileMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    if (profileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [profileMenuOpen]);
+
+  async function handleSignOut() {
+    try {
+      await api.logout();
+    } catch {}
+    localStorage.removeItem("splitspace_token");
+    window.location.reload();
+  }
 
   const isFbReady = isFirebaseConfigured();
 
@@ -341,31 +371,215 @@ export function LandingPage({
           </a>
         </nav>
 
-        {/* Right CTA Actions */}
+        {/* Right CTA Actions / Profile Menu */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {onGoToDashboard ? (
-            <motion.button
-              whileHover={{ scale: 1.05, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              type="button"
-              onClick={onGoToDashboard}
-              style={{
-                background: "#18181b",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 9999,
-                padding: "10px 20px",
-                fontSize: 13.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
-              }}
-            >
-              ← Back to Dashboard
-            </motion.button>
+          {currentUser ? (
+            <div style={{ position: "relative" }} ref={profileMenuRef}>
+              {/* Interactive Profile Pill */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setProfileMenuOpen((v) => !v)}
+                role="button"
+                tabIndex={0}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "6px 12px 6px 8px",
+                  background: profileMenuOpen ? "#ffffff" : "rgba(255, 255, 255, 0.92)",
+                  borderRadius: 14,
+                  border: profileMenuOpen ? "1.5px solid #e0562e" : "1px solid rgba(224, 86, 46, 0.25)",
+                  boxShadow: profileMenuOpen ? "0 8px 24px rgba(224, 86, 46, 0.22)" : "0 2px 10px rgba(13, 27, 66, 0.06)",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                  userSelect: "none",
+                }}
+                className="hover:bg-white hover:border-orange-500 hover:shadow-md"
+              >
+                <div style={{ position: "relative" }}>
+                  <Avatar m={currentUser} size="sm" />
+                  <span
+                    style={{
+                      position: "absolute",
+                      bottom: -1,
+                      right: -1,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#10b981",
+                      border: "1.5px solid #ffffff",
+                    }}
+                  />
+                </div>
+                <div style={{ minWidth: 0, textAlign: "left" }}>
+                  <strong style={{ display: "block", fontSize: 13, color: "#18181b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }}>
+                    {currentUser.name || "Ashish N"}
+                  </strong>
+                  <small style={{ display: "block", fontSize: 10.5, color: "rgba(24, 24, 27, 0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {currentUser.email || "demo@splitspace.local"}
+                  </small>
+                </div>
+                <ChevronDown
+                  size={15}
+                  style={{
+                    color: "#e0562e",
+                    transform: profileMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                />
+              </motion.div>
+
+              {/* Popover Dropdown Menu */}
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94, y: 6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.94, y: 6 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      width: 280,
+                      background: "#ffffff",
+                      borderRadius: 20,
+                      padding: 16,
+                      boxShadow: "0 24px 60px -12px rgba(13, 27, 66, 0.25), 0 0 0 1px rgba(224, 86, 46, 0.18)",
+                      zIndex: 100,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    {/* Profile Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1px solid rgba(224, 86, 46, 0.12)" }}>
+                      <div style={{ position: "relative" }}>
+                        <Avatar m={currentUser} size="md" />
+                        <span style={{ position: "absolute", bottom: 0, right: 0, width: 10, height: 10, borderRadius: "50%", background: "#10b981", border: "2px solid #ffffff" }} />
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <strong style={{ fontSize: 14, color: "#18181b", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {currentUser.name || "Ashish N"}
+                          </strong>
+                          <ShieldCheck size={14} style={{ color: "#10b981", flexShrink: 0 }} />
+                        </div>
+                        <small style={{ display: "block", fontSize: 11, color: "rgba(24, 24, 27, 0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {currentUser.email}
+                        </small>
+                      </div>
+                    </div>
+
+                    {/* Active Ledger Status Badge */}
+                    <div style={{ background: "linear-gradient(135deg, rgba(224, 86, 46, 0.08) 0%, rgba(199, 63, 49, 0.08) 100%)", border: "1px solid rgba(224, 86, 46, 0.18)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "#e0562e" }}>
+                        <Activity size={13} />
+                        <span>Active Ledger</span>
+                      </div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#16a34a" }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
+                        Online
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {onGoToDashboard && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            onGoToDashboard();
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            color: "#ffffff",
+                            background: "#18181b",
+                            border: "none",
+                            width: "100%",
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                          className="hover:scale-102"
+                        >
+                          <span>Open Dashboard</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          setShowSettingsModal(true);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: "#18181b",
+                          background: "#f9fafb",
+                          border: "1px solid #e5e7eb",
+                          width: "100%",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                        className="hover:bg-orange-50 hover:border-orange-300"
+                      >
+                        <Settings size={15} style={{ color: "#e0562e" }} />
+                        <span style={{ flex: 1 }}>Settings & Preferences</span>
+                      </button>
+                    </div>
+
+                    {/* Sign out */}
+                    <div style={{ borderTop: "1px solid rgba(224, 86, 46, 0.12)", paddingTop: 10 }}>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          color: "#b91c1c",
+                          background: "#fef2f2",
+                          border: "1px solid #fecaca",
+                          width: "100%",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                        className="hover:bg-red-100 hover:border-red-300"
+                      >
+                        <LogOut size={15} />
+                        <span>Sign out</span>
+                      </button>
+                    </div>
+
+                    {/* Made by Ashish N badge */}
+                    <div style={{ marginTop: 2, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,0.05)", fontSize: 10, color: "#9ca3af", textAlign: "center" }}>
+                      SplitSpace · Engineered by <strong style={{ color: "#475569" }}>Ashish N</strong>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
             <>
               <motion.button
@@ -1600,6 +1814,141 @@ export function LandingPage({
           </div>
         </SheetPanel>
       </Sheet>
+
+      {/* ── Settings & Preferences Modal ── */}
+      {showSettingsModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(13, 27, 66, 0.55)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setShowSettingsModal(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 22,
+              maxWidth: 490,
+              width: "100%",
+              padding: 26,
+              boxShadow: "0 30px 80px rgba(13, 27, 66, 0.28)",
+              border: "1px solid rgba(224, 86, 46, 0.25)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg, rgba(224, 86, 46, 0.15), rgba(199, 63, 49, 0.15))", color: "#e0562e", display: "grid", placeItems: "center" }}>
+                  <Settings size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, color: "#18181b", fontWeight: 700 }}>System & Account Hub</h3>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(24, 24, 27, 0.6)" }}>Authenticated profile and platform shortcuts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="icon-btn sm"
+                style={{ borderRadius: 8, background: "#f3f4f6", border: "none", width: 32, height: 32, cursor: "pointer", display: "grid", placeItems: "center" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Account Info Box */}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "#64748b", letterSpacing: "0.06em", marginBottom: 10 }}>
+                  Connected Account
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar m={currentUser} size="md" />
+                  <div>
+                    <strong style={{ display: "block", fontSize: 14, color: "#0f172a", fontWeight: 700 }}>{currentUser?.name || "Ashish N"}</strong>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{currentUser?.email}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Database & Sync Status */}
+              <div style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)", border: "1px solid #bbf7d0", borderRadius: 14, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "#16a34a", color: "#ffffff", display: "grid", placeItems: "center" }}>
+                  <Zap size={16} />
+                </div>
+                <div>
+                  <strong style={{ fontSize: 12, color: "#166534", display: "block" }}>Cloud Firestore Online</strong>
+                  <span style={{ fontSize: 11, color: "#15803d" }}>Atomic transactions & 90-day auto-TTL enabled.</span>
+                </div>
+              </div>
+
+              {/* Keyboard Shortcuts Summary */}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "#64748b", letterSpacing: "0.06em", marginBottom: 10 }}>
+                  Lightning Shortcuts
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, fontSize: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#334155" }}>
+                    <span>Add Expense:</span> <kbd style={{ background: "#e2e8f0", padding: "2px 7px", borderRadius: 4, fontWeight: 700, fontSize: 11 }}>E</kbd>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#334155" }}>
+                    <span>New Space:</span> <kbd style={{ background: "#e2e8f0", padding: "2px 7px", borderRadius: 4, fontWeight: 700, fontSize: 11 }}>N</kbd>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#334155" }}>
+                    <span>Settle Up:</span> <kbd style={{ background: "#e2e8f0", padding: "2px 7px", borderRadius: 4, fontWeight: 700, fontSize: 11 }}>S</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 22, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "#dc2626",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  padding: "9px 16px",
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <LogOut size={14} /> Sign out
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                style={{
+                  background: "#18181b",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "9px 18px",
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

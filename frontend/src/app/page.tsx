@@ -150,24 +150,6 @@ export default function Home() {
     onToggleSidebar: () => setSidebar((v) => !v),
   });
 
-  const getGreeting = () => {
-    const hr = new Date().getHours();
-    if (hr < 12) return "Good morning";
-    if (hr < 17) return "Good afternoon";
-    return "Good evening";
-  };
-
-  if (authLoading) {
-    return (
-      <div className="auth-page">
-        <div style={{ textAlign: "center", color: "#0f766e" }}>
-          <div className="btn-spinner" style={{ width: 32, height: 32, margin: "0 auto 16px", borderColor: "#0f766e", borderTopColor: "transparent" }} />
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Loading SplitSpace…</div>
-        </div>
-      </div>
-    );
-  }
-
   // Browser History & Back/Forward Navigation Sync
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -202,6 +184,24 @@ export default function Home() {
       window.history.pushState({ view: "landing" }, "");
     }
   }, []);
+
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return "Good morning";
+    if (hr < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  if (authLoading) {
+    return (
+      <div className="auth-page">
+        <div style={{ textAlign: "center", color: "#0f766e" }}>
+          <div className="btn-spinner" style={{ width: 32, height: 32, margin: "0 auto 16px", borderColor: "#0f766e", borderTopColor: "transparent" }} />
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Loading SplitSpace…</div>
+        </div>
+      </div>
+    );
+  }
 
   // Not signed in or viewing landing page
   if (!authLoading && (!user || viewMode === "landing")) {
