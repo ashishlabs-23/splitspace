@@ -1,6 +1,6 @@
 "use client";
 import { Space } from "@/lib/api";
-import { Plus, Users, Download, ArrowRightLeft, Trash2, Sparkles } from "lucide-react";
+import { Plus, Users, Download, ArrowRightLeft, Trash2 } from "lucide-react";
 
 export function SpaceHeader({
   active,
@@ -10,7 +10,6 @@ export function SpaceHeader({
   onSettleUp,
   onExport,
   onDeleteSpace,
-  onViewLandingPage,
 }: {
   active?: Space;
   greeting: string;
@@ -19,7 +18,6 @@ export function SpaceHeader({
   onSettleUp: () => void;
   onExport: () => void;
   onDeleteSpace: () => void;
-  onViewLandingPage?: () => void;
 }) {
   return (
     <header className="topbar">
@@ -37,16 +35,6 @@ export function SpaceHeader({
       </div>
 
       <div className="top-actions">
-        {onViewLandingPage && (
-          <button
-            className="btn ghost desktop-only"
-            onClick={onViewLandingPage}
-            title="View Product Landing Page"
-            style={{ color: "#e0562e" }}
-          >
-            <Sparkles size={14} /> Landing Page
-          </button>
-        )}
         <button
           className="btn ghost desktop-only"
           onClick={onExport}

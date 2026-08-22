@@ -168,6 +168,41 @@ export default function Home() {
     );
   }
 
+  // Browser History & Back/Forward Navigation Sync
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Initialize state if needed
+    if (!window.history.state) {
+      window.history.replaceState({ view: user ? "dashboard" : "landing" }, "");
+    }
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state?.view) {
+        setViewMode(e.state.view);
+      } else {
+        setViewMode((curr) => (curr === "dashboard" ? "landing" : "dashboard"));
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [user]);
+
+  const goToDashboard = useCallback(() => {
+    setViewMode("dashboard");
+    if (typeof window !== "undefined" && window.history.state?.view !== "dashboard") {
+      window.history.pushState({ view: "dashboard" }, "");
+    }
+  }, []);
+
+  const goToLanding = useCallback(() => {
+    setViewMode("landing");
+    if (typeof window !== "undefined" && window.history.state?.view !== "landing") {
+      window.history.pushState({ view: "landing" }, "");
+    }
+  }, []);
+
   // Not signed in or viewing landing page
   if (!authLoading && (!user || viewMode === "landing")) {
     return (
@@ -176,10 +211,10 @@ export default function Home() {
         currentUser={user}
         onLoggedIn={(u: Member) => {
           setUser(u);
-          setViewMode("dashboard");
+          goToDashboard();
           refresh();
         }}
-        onGoToDashboard={user ? () => setViewMode("dashboard") : undefined}
+        onGoToDashboard={user ? goToDashboard : undefined}
       />
     );
   }
@@ -223,7 +258,6 @@ export default function Home() {
           setModal("deleteSpace");
         }}
         onSignOut={() => setSignOutSheetOpen(true)}
-        onViewLandingPage={() => setViewMode("landing")}
       />
 
       {/* ── Mobile Top Bar ── */}
@@ -231,7 +265,15 @@ export default function Home() {
         <button className="icon-btn" onClick={() => setSidebar(true)} aria-label="Open navigation sidebar">
           <Menu size={20} />
         </button>
-        <div className="mobile-brand">SplitSpace</div>
+        <div
+          className="mobile-brand"
+          style={{ cursor: "pointer" }}
+          onClick={goToLanding}
+          role="button"
+          tabIndex={0}
+        >
+          SplitSpace
+        </div>
         <div style={{ width: 36 }} />
       </div>
 
@@ -251,7 +293,6 @@ export default function Home() {
               setModal("settleUp");
             }}
             onExport={() => setModal("export")}
-            onViewLandingPage={() => setViewMode("landing")}
             onDeleteSpace={() => {
               if (active) {
                 setSpaceToDelete(active);

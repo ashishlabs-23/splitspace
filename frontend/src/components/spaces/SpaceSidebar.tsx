@@ -27,7 +27,6 @@ export function SpaceSidebar({
   onNewSpace,
   onDeleteSpace,
   onSignOut,
-  onViewLandingPage,
 }: {
   spaces: Space[];
   active?: Space;
@@ -38,7 +37,6 @@ export function SpaceSidebar({
   onNewSpace: () => void;
   onDeleteSpace: (s: Space) => void;
   onSignOut?: () => void;
-  onViewLandingPage?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -74,7 +72,17 @@ export function SpaceSidebar({
     <>
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{ paddingBottom: 28 }}>
         {/* Brand header */}
-        <div className="brand">
+        <div
+          className="brand"
+          style={{ cursor: "pointer" }}
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              window.history.pushState({ view: "landing" }, "");
+              window.dispatchEvent(new PopStateEvent("popstate", { state: { view: "landing" } }));
+            }
+          }}
+          title="Back to Landing Page"
+        >
           <div className="brand-dot">S</div>
           <div>
             <div className="brand-name">SplitSpace</div>
@@ -82,7 +90,10 @@ export function SpaceSidebar({
           </div>
           <button
             className="icon-btn mobile-close"
-            onClick={onCloseSidebar}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseSidebar();
+            }}
             aria-label="Close sidebar navigation"
           >
             <X size={18} />
@@ -100,36 +111,6 @@ export function SpaceSidebar({
         >
           <Plus size={16} /> New space
         </button>
-
-        {/* View Landing Page Button */}
-        {onViewLandingPage && (
-          <button
-            type="button"
-            onClick={() => {
-              onViewLandingPage();
-              onCloseSidebar();
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: "9px 12px",
-              borderRadius: 12,
-              background: "rgba(224, 86, 46, 0.08)",
-              border: "1px solid rgba(224, 86, 46, 0.18)",
-              color: "#e0562e",
-              fontSize: 12.5,
-              fontWeight: 700,
-              cursor: "pointer",
-              marginBottom: 12,
-              transition: "all 0.15s",
-            }}
-            className="hover:scale-102 hover:bg-orange-100"
-          >
-            <Sparkles size={15} /> Product Landing Page
-          </button>
-        )}
 
         {/* Spaces list */}
         <div className="nav-section" style={{ flex: 1, overflowY: "auto" }}>

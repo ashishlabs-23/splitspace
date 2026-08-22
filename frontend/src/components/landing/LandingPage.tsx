@@ -416,28 +416,6 @@ export function LandingPage({
               </motion.button>
             </>
           )}
-
-          {/* Aesthetic Toggle */}
-          <motion.button
-            whileHover={{ rotate: 180 }}
-            transition={{ duration: 0.3 }}
-            type="button"
-            onClick={() => setGrainKey((v) => v + 1)}
-            aria-label="Refresh background grain"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: "rgba(24, 24, 27, 0.08)",
-              border: "1px solid rgba(24, 24, 27, 0.1)",
-              color: "#18181b",
-              display: "grid",
-              placeItems: "center",
-              cursor: "pointer",
-            }}
-          >
-            <RotateCw size={14} />
-          </motion.button>
         </div>
       </motion.header>
 
