@@ -20,55 +20,67 @@ export function generateMemberEmailStatement(
   recipient?: Member | null,
   creatorName = "Ashish N"
 ): { subject: string; body: string } {
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
+  const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 
-  const subject = `[SplitSpace] Expense & Settlement Statement — ${space.title} (${space.currency})`;
+  const subject = `[SplitSpace] Expense & Settlement Statement — ${space.title}`;
 
-  let body = `OFFICIAL EXPENSE & SETTLEMENT STATEMENT\n`;
-  body += `==============================================\n`;
-  body += `Space: ${space.title}\n`;
-  body += `Period: ${space.period || "Current Shared Ledger"}\n`;
-  body += `Date: ${dateStr}\n`;
-  body += `Engineered & Managed by: ${creatorName}\n`;
-  body += `==============================================\n\n`;
+  let body = `Dear Team,\n\n`;
+  body += `Please find below the official expense and settlement statement for the current shared ${space.title} ledger.\n\n`;
 
-  body += `EXECUTIVE FINANCIAL SUMMARY:\n`;
-  body += `• Total Group Spend: ${formatMoney(summary?.total_spent || 0, space.currency)}\n`;
-  body += `• Total Itemized Expenses: ${space.expenses.length}\n`;
-  body += `• Total Group Members: ${space.members.length}\n\n`;
+  body += `### Expense Summary\n\n`;
+  body += `**Ledger:** ${space.title}\n\n`;
+  body += `**Reporting Date:** ${dateStr}\n\n`;
+  body += `**Managed by:** ${creatorName}\n\n`;
+
+  body += `| **Item** | **Amount** |\n`;
+  body += `| ----------------------- | -------------: |\n`;
+  body += `| Total Group Expenditure | **${formatMoney(summary?.total_spent || 0, space.currency)}** |\n`;
+  body += `| Number of Expenses | ${space.expenses.length} |\n`;
+  body += `| Total Participants | ${space.members.length} |\n\n`;
 
   if (recipient) {
     const memBalance = summary?.member_balances.find((x) => x.member.id === recipient.id);
     const net = memBalance ? memBalance.net_balance : 0;
-    body += `YOUR INDIVIDUAL ACCOUNTING (${recipient.name}):\n`;
-    body += `• Total Paid by You: ${formatMoney(memBalance?.total_paid || 0, space.currency)}\n`;
-    body += `• Your Total Share: ${formatMoney(memBalance?.total_owed || 0, space.currency)}\n`;
-    body += `• Net Position: ${net >= 0 ? `+${formatMoney(net, space.currency)} (You receive)` : `${formatMoney(net, space.currency)} (You owe)`}\n\n`;
+    body += `### Individual Settlement – ${recipient.name}\n\n`;
+    body += `| **Description** | **Amount** |\n`;
+    body += `| ----------------------- | ------------: |\n`;
+    body += `| Amount Paid | ${formatMoney(memBalance?.total_paid || 0, space.currency)} |\n`;
+    body += `| Individual Share | **${formatMoney(memBalance?.total_owed || 0, space.currency)}** |\n`;
+    body += `| **${net >= 0 ? "Net Balance Receivable" : "Net Balance Payable"}** | **${formatMoney(Math.abs(net), space.currency)}** |\n\n`;
   }
 
-  body += `SUGGESTED DEBT SETTLEMENTS:\n`;
+  body += `### Recommended Settlements\n\n`;
   if (summary?.settlements && summary.settlements.length > 0) {
-    summary.settlements.forEach((s, idx) => {
-      body += `${idx + 1}. ${s.from_member.name} pays ${s.to_member.name} ➔ ${formatMoney(s.amount, space.currency)}\n`;
+    summary.settlements.forEach((s) => {
+      body += `* **${s.from_member.name} → ${s.to_member.name}:** ${formatMoney(s.amount, space.currency)}\n`;
     });
   } else {
-    body += `✦ All members are completely settled up! No outstanding balances.\n`;
+    body += `* All members are completely settled up! No outstanding balances.\n`;
   }
   body += `\n`;
 
-  body += `ITEMIZED EXPENSE BREAKDOWN:\n`;
-  space.expenses.forEach((e, idx) => {
-    body += `${idx + 1}. ${new Date(e.created_at).toLocaleDateString()} — ${e.title} [${e.category.toUpperCase()}]\n`;
-    body += `   Amount: ${formatMoney(e.amount, space.currency)} (Paid by: ${e.paid_by.name})\n`;
+  body += `### Itemized Expenses\n\n`;
+  body += `| **Date** | **Category** | **Description** | **Paid By** | **Amount** |\n`;
+  body += `| ----------- | ------------ | --------------- | ----------- | ---------: |\n`;
+  space.expenses.forEach((e) => {
+    const expDate = new Date(e.created_at).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const catLabel = e.category.charAt(0).toUpperCase() + e.category.slice(1);
+    body += `| ${expDate} | ${catLabel} | ${e.title} | ${e.paid_by.name} | ${formatMoney(e.amount, space.currency)} |\n`;
   });
+  body += `\n`;
 
-  body += `\n==============================================\n`;
-  body += `Generated with SplitSpace — Next-Gen Expense Systems.\n`;
-  body += `Engineered & Crafted by ${creatorName}\n`;
+  body += `Please review the statement and complete the settlement at your earliest convenience.\n\n`;
+  body += `Thank you.\n\n`;
+  body += `**${creatorName}**\n\n`;
+  body += `*Generated via SplitSpace Expense Management System.*`;
 
   return { subject, body };
 }
