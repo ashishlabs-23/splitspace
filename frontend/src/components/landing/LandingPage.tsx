@@ -28,6 +28,7 @@ import {
   ChevronUp,
   LogOut,
   Activity,
+  Trash2,
   X,
   PieChart,
   Database,
@@ -2858,6 +2859,44 @@ export function LandingPage({
                     <span>Settle Up:</span> <kbd style={{ background: "#e2e8f0", padding: "2px 7px", borderRadius: 4, fontWeight: 700, fontSize: 11 }}>S</kbd>
                   </div>
                 </div>
+              </div>
+
+              {/* Storage & Local Cache Control */}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <strong style={{ fontSize: 12.5, color: "#1e2029", display: "block" }}>Local Storage & Caches</strong>
+                  <span style={{ fontSize: 11, color: "#64748b" }}>Clear offline storage and currency rate caches</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                      } catch {}
+                      alert("Local storage and cache cleared successfully!");
+                      window.location.reload();
+                    }
+                  }}
+                  style={{
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    color: "#dc2626",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flexShrink: 0,
+                  }}
+                  className="hover:bg-red-100"
+                >
+                  <Trash2 size={12} /> Clear Cache
+                </button>
               </div>
             </div>
 
