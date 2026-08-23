@@ -82,15 +82,20 @@ export function InviteModal({
       <div
         className="modal"
         style={{
-          maxWidth: 620,
+          maxWidth: 560,
           width: "100%",
+          margin: "0 auto",
+          maxHeight: "90vh",
+          overflowY: "auto",
           background: "#faf1eb",
-          border: "1px solid rgba(241, 107, 45, 0.18)",
-          borderRadius: 28,
-          padding: "32px",
-          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.35)",
+          backgroundImage: "linear-gradient(160deg, #ffffff 0%, #faf1eb 60%, #f5e5da 100%)",
+          border: "1.5px solid rgba(241, 107, 45, 0.22)",
+          borderRadius: 24,
+          padding: "clamp(16px, 4vw, 24px)",
+          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.28)",
           color: "#1e2029",
           fontFamily: "'Space Grotesk', -apple-system, sans-serif",
+          boxSizing: "border-box",
         }}
       >
         {/* ── Modal Header ── */}

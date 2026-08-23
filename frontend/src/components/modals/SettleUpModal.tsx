@@ -84,15 +84,20 @@ export function SettleUpModal({
       <div
         className="modal"
         style={{
-          maxWidth: 620,
+          maxWidth: 560,
           width: "100%",
+          margin: "0 auto",
+          maxHeight: "90vh",
+          overflowY: "auto",
           background: "#faf1eb",
-          border: "1px solid rgba(241, 107, 45, 0.18)",
-          borderRadius: 28,
-          padding: "32px",
-          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.35)",
+          backgroundImage: "linear-gradient(160deg, #ffffff 0%, #faf1eb 60%, #f5e5da 100%)",
+          border: "1.5px solid rgba(241, 107, 45, 0.22)",
+          borderRadius: 24,
+          padding: "clamp(16px, 4vw, 24px)",
+          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.28)",
           color: "#1e2029",
           fontFamily: "'Space Grotesk', -apple-system, sans-serif",
+          boxSizing: "border-box",
         }}
       >
         {/* ── Modal Header ── */}
@@ -101,47 +106,52 @@ export function SettleUpModal({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingBottom: 20,
+            paddingBottom: 16,
             borderBottom: "1px solid rgba(13, 27, 66, 0.08)",
+            gap: 12,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             <div
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
                 background: "#e0562e",
                 color: "#ffffff",
                 display: "grid",
                 placeItems: "center",
-                boxShadow: "0 6px 18px rgba(224, 86, 46, 0.35)",
+                boxShadow: "0 4px 14px rgba(224, 86, 46, 0.30)",
                 flexShrink: 0,
               }}
             >
-              <ArrowRightLeft size={24} />
+              <ArrowRightLeft size={20} />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h2
                 style={{
-                  fontSize: 22,
+                  fontSize: "clamp(17px, 4vw, 21px)",
                   fontWeight: 700,
                   color: "#1e2029",
                   margin: 0,
                   letterSpacing: "-0.02em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
                 Record Settlement
               </h2>
               <p
                 style={{
-                  fontSize: 13,
+                  fontSize: "clamp(11.5px, 2.8vw, 13px)",
                   color: "#6b7280",
-                  margin: "4px 0 0",
+                  margin: "2px 0 0",
                   fontWeight: 400,
+                  lineHeight: 1.35,
                 }}
               >
-                Log a direct transfer between members to clear balances in this space.
+                Log a direct transfer to clear balances in this space.
               </p>
             </div>
           </div>
@@ -149,146 +159,136 @@ export function SettleUpModal({
             onClick={onClose}
             aria-label="Close dialog"
             style={{
-              background: "transparent",
+              background: "rgba(13, 27, 66, 0.06)",
               border: "none",
               color: "#6b7280",
               cursor: "pointer",
               padding: 6,
-              borderRadius: 8,
+              borderRadius: "50%",
               display: "grid",
               placeItems: "center",
-              transition: "color 0.15s, transform 0.15s",
+              flexShrink: 0,
+              transition: "all 0.15s",
             }}
-            className="hover:text-black hover:scale-110"
+            className="hover:text-black hover:bg-black/10 active:scale-95"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* ── Direction Card (Payer -> Recipient) ── */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto 1fr",
-            gap: 12,
-            alignItems: "center",
             background: "#ffffff",
             border: "1px solid rgba(224, 86, 46, 0.18)",
-            borderRadius: 20,
-            padding: "18px 20px",
-            marginTop: 20,
-            marginBottom: 20,
+            borderRadius: 18,
+            padding: "14px",
+            marginTop: 16,
+            marginBottom: 16,
             boxShadow: "0 2px 8px rgba(224, 86, 46, 0.05)",
+            boxSizing: "border-box",
           }}
         >
-          {/* Payer Select */}
-          <div>
-            <span
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#6b7280",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                marginBottom: 6,
-              }}
-            >
-              Who Paid (Sender)
-            </span>
-            <div
-              style={{
-                position: "relative",
-                background: "#faf1eb",
-                borderRadius: 12,
-                border: "1px solid #fbd8cd",
-                padding: "8px 12px",
-              }}
-            >
-              <select
-                value={fromId}
-                onChange={(e) => setFromId(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#1e2029",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {space.members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Arrow Indicator */}
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: "#faece6",
-              color: "#e0562e",
               display: "grid",
-              placeItems: "center",
-              margin: "0 auto",
-              marginTop: 18,
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+              gap: 10,
+              alignItems: "center",
             }}
           >
-            <ArrowRight size={18} />
-          </div>
-
-          {/* Recipient Select */}
-          <div>
-            <span
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#6b7280",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                marginBottom: 6,
-              }}
-            >
-              Who Received (Recipient)
-            </span>
-            <div
-              style={{
-                position: "relative",
-                background: "#faf1eb",
-                borderRadius: 12,
-                border: "1px solid #fbd8cd",
-                padding: "8px 12px",
-              }}
-            >
-              <select
-                value={toId}
-                onChange={(e) => setToId(e.target.value)}
+            {/* Payer Select */}
+            <div style={{ minWidth: 0 }}>
+              <span
                 style={{
-                  width: "100%",
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 14,
+                  display: "block",
+                  fontSize: 10.5,
                   fontWeight: 700,
-                  color: "#1e2029",
-                  outline: "none",
-                  cursor: "pointer",
+                  color: "#6b7280",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 4,
                 }}
               >
-                {space.members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                Sender (Paid)
+              </span>
+              <div
+                style={{
+                  position: "relative",
+                  background: "#faf1eb",
+                  borderRadius: 10,
+                  border: "1px solid #fbd8cd",
+                  padding: "6px 10px",
+                }}
+              >
+                <select
+                  value={fromId}
+                  onChange={(e) => setFromId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    background: "transparent",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    color: "#1e2029",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {space.members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Recipient Select */}
+            <div style={{ minWidth: 0 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: "#6b7280",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 4,
+                }}
+              >
+                Recipient (Received)
+              </span>
+              <div
+                style={{
+                  position: "relative",
+                  background: "#faf1eb",
+                  borderRadius: 10,
+                  border: "1px solid #fbd8cd",
+                  padding: "6px 10px",
+                }}
+              >
+                <select
+                  value={toId}
+                  onChange={(e) => setToId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    background: "transparent",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    color: "#1e2029",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {space.members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -296,12 +296,13 @@ export function SettleUpModal({
         {/* ── Settlement Amount Input Card ── */}
         <div
           style={{
-            background: "rgba(255, 255, 255, 0.88)",
+            background: "rgba(255, 255, 255, 0.92)",
             border: "1.5px solid #e0562e",
-            borderRadius: 20,
-            padding: "20px 22px",
+            borderRadius: 18,
+            padding: "16px",
             boxShadow: "0 4px 16px rgba(224, 86, 46, 0.08)",
-            marginBottom: 20,
+            marginBottom: 16,
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -309,12 +310,13 @@ export function SettleUpModal({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 10,
+              marginBottom: 8,
+              gap: 8,
             }}
           >
             <span
               style={{
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: 700,
                 color: "#e0562e",
                 letterSpacing: "0.06em",
@@ -326,12 +328,13 @@ export function SettleUpModal({
             {defaultAmount ? (
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: 600,
                   color: "#059669",
                   background: "#ecfdf5",
-                  padding: "2px 8px",
+                  padding: "2px 6px",
                   borderRadius: 6,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Suggested: {formatMoney(defaultAmount, space.currency)}
@@ -343,16 +346,17 @@ export function SettleUpModal({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
+              gap: 10,
               background: "#ffffff",
               border: "1px solid #e5e7eb",
-              borderRadius: 14,
-              padding: "10px 16px",
+              borderRadius: 12,
+              padding: "8px 14px",
+              boxSizing: "border-box",
             }}
           >
             <span
               style={{
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 700,
                 color: "#e0562e",
               }}
@@ -373,9 +377,11 @@ export function SettleUpModal({
               onKeyDown={(e) => e.key === "Enter" && handleSettle()}
               style={{
                 flex: 1,
+                width: "100%",
+                minWidth: 0,
                 border: "none",
                 background: "transparent",
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 700,
                 color: "#1e2029",
                 outline: "none",
@@ -384,7 +390,14 @@ export function SettleUpModal({
           </div>
 
           {/* Quick preset chips */}
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: 6,
+              marginTop: 10,
+            }}
+          >
             {[100, 500, 1000, 2000].map((val) => (
               <button
                 key={val}
@@ -398,40 +411,46 @@ export function SettleUpModal({
                   background: "#faf1eb",
                   border: "1px solid #fbd8cd",
                   borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 11.5,
+                  padding: "6px 2px",
+                  fontSize: 11,
                   fontWeight: 700,
                   color: "#e0562e",
                   cursor: "pointer",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
                 }}
                 className="hover:bg-orange-500 hover:text-white hover:border-orange-500"
               >
                 +{sym}{val}
               </button>
             ))}
-            {defaultAmount && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAmount(defaultAmount.toString());
-                  setErr("");
-                }}
-                style={{
-                  background: "#ecfdf5",
-                  border: "1px solid #a7f3d0",
-                  borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: "#059669",
-                  cursor: "pointer",
-                }}
-                className="hover:bg-emerald-600 hover:text-white"
-              >
-                Exact Balance
-              </button>
-            )}
           </div>
+
+          {defaultAmount ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAmount(defaultAmount.toString());
+                setErr("");
+              }}
+              style={{
+                width: "100%",
+                marginTop: 8,
+                background: "#ecfdf5",
+                border: "1px solid #a7f3d0",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: "#059669",
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+              className="hover:bg-emerald-600 hover:text-white"
+            >
+              Set Exact Balance ({formatMoney(defaultAmount, space.currency)})
+            </button>
+          ) : null}
         </div>
 
         {/* ── Payment Method / Memo Note ── */}

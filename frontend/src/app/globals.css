@@ -844,6 +844,9 @@ a { color: inherit; text-decoration: none; }
 /* ── MODAL ────────────────────────────────────────────────────── */
 .modal {
   width: min(560px, 100%);
+  max-width: calc(100vw - 24px);
+  margin: 0 auto;
+  box-sizing: border-box;
   max-height: 92vh; overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border2);
