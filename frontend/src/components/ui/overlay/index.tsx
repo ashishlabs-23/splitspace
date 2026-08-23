@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /**
  * Overlay Primitives
@@ -209,9 +209,19 @@ export function OverlayContent({
         duration: 0.32,
         bounce: 0.16,
       }}
-      style={{ position: "relative", zIndex: 80 }}
+      style={{
+        position: "relative",
+        zIndex: 80,
+        width: "100%",
+        maxWidth: "100%",
+        display: "flex",
+        justifyContent: "center",
+        boxSizing: "border-box",
+      }}
     >
-      {children}
+      <div style={{ pointerEvents: "auto", width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box" }}>
+        {children}
+      </div>
     </motion.div>
   );
 }
@@ -283,22 +293,23 @@ export function Overlay({
               position: "fixed",
               inset: 0,
               zIndex: 80,
-              display: "grid",
-              placeItems: "center",
-              padding: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
               pointerEvents: "none",   /* let backdrop handle clicks */
+              boxSizing: "border-box",
+              width: "100vw",
+              height: "100vh",
+              overflow: "hidden",
             }}
           >
             <OverlayContent
               label={label}
               onClose={onClose}
               className={className}
-              // re-enable pointer events only on the content box
-              // (inline style override since motion.div passes style through)
             >
-              <div style={{ pointerEvents: "auto" }}>
-                {children}
-              </div>
+              {children}
             </OverlayContent>
           </div>
         </>

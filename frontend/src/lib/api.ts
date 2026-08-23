@@ -1,5 +1,6 @@
 import { firebaseAuthService, isFirebaseConfigured } from "./firebase";
 import { firestoreDb } from "./firestore-db";
+import { validateUsername, validateEmail, validatePassword } from "./validation";
 
 export type MemberRole = "owner" | "admin" | "member";
 
@@ -9,6 +10,9 @@ export interface Member {
   email: string;
   role: MemberRole;
   avatar?: string | null;
+  emailVerified?: boolean;
+  authProvider?: "password" | "google";
+  userUid?: string | null;
 }
 
 export type SplitMode = "equal" | "exact" | "percentage" | "shares";
@@ -32,6 +36,8 @@ export interface Expense {
   category: string;
   note?: string | null;
   created_at: string;
+  updated_at?: string;
+  created_by_uid?: string;
   split_mode?: SplitMode;
   splits: Split[];
 }
@@ -45,6 +51,8 @@ export interface SettlementRecord {
   currency: string;
   note?: string | null;
   created_at: string;
+  updated_at?: string;
+  created_by_uid?: string;
 }
 
 export interface Space {
@@ -81,84 +89,71 @@ export interface Summary {
   member_balances: MemberBalance[];
 }
 
-function getCurrentUser(): Member | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("splitspace_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+function requireFirebaseConfigured() {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Firebase configuration is missing. Add the required keys to `frontend/.env.local`.");
   }
 }
 
-export const api = {
-  // -------------------------------------------------------------
-  // FIREBASE AUTHENTICATION
-  // -------------------------------------------------------------
-  login: async (email: string, password: string, name?: string): Promise<{ access_token: string; user: Member }> => {
-    if (isFirebaseConfigured()) {
-      const res = await firebaseAuthService.loginWithEmail(email, password, name);
-      localStorage.setItem("splitspace_token", res.token);
-      localStorage.setItem("splitspace_user", JSON.stringify(res.user));
-      try {
-        await firestoreDb.syncUser({ id: res.user.id, email: res.user.email, name: res.user.name, avatar: res.user.avatar });
-      } catch (err) {
-        console.warn("User sync notice:", err);
-      }
-      return { access_token: res.token, user: res.user };
-    }
+function getCurrentUser(): Member | null {
+  return firebaseAuthService.getCurrentUser();
+}
 
-    // Offline / Demo fallback
-    const user: Member = {
-      id: "demo-user-ashish",
-      name: name?.trim() || (email === "demo@splitspace.local" ? "Ashish N" : email.split("@")[0]),
-      email: email,
-      role: "owner",
-    };
-    const token = "mock-firebase-token-" + Date.now();
-    localStorage.setItem("splitspace_token", token);
-    localStorage.setItem("splitspace_user", JSON.stringify(user));
-    return { access_token: token, user };
+async function syncCurrentUser(user: Member) {
+  await firestoreDb.syncUser({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatar: user.avatar,
+    emailVerified: user.emailVerified,
+    authProvider: user.authProvider,
+  });
+}
+
+export const api = {
+  login: async (email: string, password: string, name?: string): Promise<{ access_token: string; user: Member }> => {
+    requireFirebaseConfigured();
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) throw new Error(emailRes.error);
+
+    const res = await firebaseAuthService.loginWithEmail(emailRes.normalized, password, name);
+    await syncCurrentUser(res.user);
+    return { access_token: res.token, user: res.user };
   },
 
-  loginWithGoogle: async (): Promise<{ access_token: string; user: Member }> => {
-    if (!isFirebaseConfigured()) {
-      throw new Error("Firebase configuration is missing in .env.local.");
-    }
-    const res = await firebaseAuthService.loginWithGoogle();
-    localStorage.setItem("splitspace_token", res.token);
-    localStorage.setItem("splitspace_user", JSON.stringify(res.user));
-    try {
-      await firestoreDb.syncUser({ id: res.user.id, email: res.user.email, name: res.user.name, avatar: res.user.avatar });
-    } catch (err) {
-      console.warn("User sync notice:", err);
-    }
+  loginWithGoogle: async (name?: string): Promise<{ access_token: string; user: Member }> => {
+    requireFirebaseConfigured();
+    const res = await firebaseAuthService.loginWithGoogle(name);
+    await syncCurrentUser(res.user);
     return { access_token: res.token, user: res.user };
   },
 
   register: async (name: string, email: string, password: string): Promise<{ access_token: string; user: Member }> => {
-    if (isFirebaseConfigured()) {
-      const res = await firebaseAuthService.registerWithEmail(name, email, password);
-      localStorage.setItem("splitspace_token", res.token);
-      localStorage.setItem("splitspace_user", JSON.stringify(res.user));
-      try {
-        await firestoreDb.syncUser({ id: res.user.id, email: res.user.email, name: res.user.name });
-      } catch (err) {
-        console.warn("User sync notice:", err);
-      }
-      return { access_token: res.token, user: res.user };
-    }
+    requireFirebaseConfigured();
 
-    const user: Member = {
-      id: "user-" + Date.now(),
-      name: name.trim() || email.split("@")[0],
-      email: email,
-      role: "owner",
-    };
-    const token = "mock-firebase-token-" + Date.now();
-    localStorage.setItem("splitspace_token", token);
-    localStorage.setItem("splitspace_user", JSON.stringify(user));
-    return { access_token: token, user };
+    const userRes = validateUsername(name);
+    if (!userRes.valid) throw new Error(userRes.error);
+
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) throw new Error(emailRes.error);
+
+    const passRes = validatePassword(password);
+    if (!passRes.valid) throw new Error(passRes.error);
+
+    const res = await firebaseAuthService.registerWithEmail(userRes.sanitized, emailRes.normalized, password);
+    await syncCurrentUser(res.user);
+    return { access_token: res.token, user: res.user };
+  },
+
+  resendVerificationEmail: async (): Promise<{ message: string; ok: boolean }> => {
+    requireFirebaseConfigured();
+    await firebaseAuthService.resendVerificationEmail();
+    return { message: "Verification email sent. Please check your inbox.", ok: true };
+  },
+
+  reloadUser: async (): Promise<Member | null> => {
+    requireFirebaseConfigured();
+    return firebaseAuthService.reloadUser();
   },
 
   logout: async (): Promise<{ message: string; ok: boolean }> => {
@@ -167,11 +162,15 @@ export const api = {
   },
 
   forgotPassword: async (email: string): Promise<{ message: string; ok: boolean }> => {
-    if (isFirebaseConfigured()) {
-      await firebaseAuthService.sendPasswordReset(email);
-      return { message: `Password reset link sent to ${email}`, ok: true };
-    }
-    return { message: "Demo mode: Password reset email simulated.", ok: true };
+    requireFirebaseConfigured();
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) throw new Error(emailRes.error);
+
+    try {
+      await firebaseAuthService.sendPasswordReset(emailRes.normalized);
+    } catch {}
+
+    return { message: "If an account exists with this email, a password reset link has been sent.", ok: true };
   },
 
   resetPassword: async (_token: string, _new_pass: string) => {
@@ -184,49 +183,49 @@ export const api = {
     return user;
   },
 
-  // -------------------------------------------------------------
-  // SPACES (BACKED BY CLOUD FIRESTORE)
-  // -------------------------------------------------------------
   spaces: async (): Promise<Space[]> => {
+    requireFirebaseConfigured();
     const user = getCurrentUser();
-    if (isFirebaseConfigured() && user) {
-      return firestoreDb.getSpaces(user.id, user.email);
-    }
-    return [];
+    if (!user) return [];
+    return firestoreDb.getSpaces(user.id, user.email, user.name);
   },
 
   space: async (id: string): Promise<Space> => {
-    return firestoreDb.getSpace(id);
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    return firestoreDb.getSpace(id, user?.name, user?.email, user?.id);
   },
 
   createSpace: async (body: Pick<Space, "title" | "emoji" | "period" | "currency">): Promise<Space> => {
+    requireFirebaseConfigured();
     const user = getCurrentUser();
     if (!user) throw new Error("Authentication required to create a space");
     return firestoreDb.createSpace(body, user);
   },
 
   deleteSpace: async (spaceId: string): Promise<{ ok: boolean }> => {
+    requireFirebaseConfigured();
     return firestoreDb.deleteSpace(spaceId);
   },
 
   leaveSpace: async (spaceId: string): Promise<{ ok: boolean }> => {
+    requireFirebaseConfigured();
     const user = getCurrentUser();
     if (!user) return { ok: true };
     return firestoreDb.leaveSpace(spaceId, user);
   },
 
   addMember: async (spaceId: string, body: { name: string; email: string }): Promise<Member> => {
+    requireFirebaseConfigured();
     return firestoreDb.addMember(spaceId, body);
   },
 
   summary: async (spaceId: string): Promise<Summary> => {
+    requireFirebaseConfigured();
     const user = getCurrentUser();
     return firestoreDb.getSummary(spaceId, user?.id, user?.email);
   },
 
-  // -------------------------------------------------------------
-  // EXPENSES
-  // -------------------------------------------------------------
   createExpense: async (
     spaceId: string,
     body: {
@@ -243,7 +242,10 @@ export const api = {
       splits: Split[];
     }
   ): Promise<Expense> => {
-    return firestoreDb.createExpense(spaceId, body);
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    if (!user) throw new Error("Authentication required to add an expense");
+    return firestoreDb.createExpense(spaceId, body, user);
   },
 
   updateExpense: async (
@@ -263,17 +265,19 @@ export const api = {
       splits: Split[];
     }
   ): Promise<Expense> => {
-    return firestoreDb.updateExpense(spaceId, expenseId, body);
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    if (!user) throw new Error("Authentication required to update an expense");
+    return firestoreDb.updateExpense(spaceId, expenseId, body, user);
   },
 
   deleteExpense: async (spaceId: string, expenseId: string): Promise<{ ok: boolean }> => {
+    requireFirebaseConfigured();
     return firestoreDb.deleteExpense(spaceId, expenseId);
   },
 
-  // -------------------------------------------------------------
-  // SETTLEMENTS (DIRECT PAYMENTS)
-  // -------------------------------------------------------------
   settlements: async (spaceId: string): Promise<SettlementRecord[]> => {
+    requireFirebaseConfigured();
     return firestoreDb.getSettlements(spaceId);
   },
 
@@ -287,32 +291,33 @@ export const api = {
       note?: string;
     }
   ): Promise<SettlementRecord> => {
-    return firestoreDb.createSettlement(spaceId, body);
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    if (!user) throw new Error("Authentication required to record a settlement");
+    return firestoreDb.createSettlement(spaceId, body, user);
   },
 
   deleteSettlement: async (spaceId: string, settlementId: string): Promise<{ ok: boolean }> => {
+    requireFirebaseConfigured();
     return firestoreDb.deleteSettlement(spaceId, settlementId);
   },
 
-  // -------------------------------------------------------------
-  // INVITES
-  // -------------------------------------------------------------
   invite: async (spaceId: string): Promise<{ url: string; token: string }> => {
-    return firestoreDb.createInvite(spaceId);
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    if (!user) throw new Error("Authentication required to create an invite");
+    return firestoreDb.createInvite(spaceId, user);
   },
 
   inviteInfo: async (tokenValue: string): Promise<{ space_id: string; title: string; emoji: string }> => {
+    requireFirebaseConfigured();
     return firestoreDb.getInviteInfo(tokenValue);
   },
 
   join: async (tokenValue: string): Promise<{ space_id: string }> => {
+    requireFirebaseConfigured();
     const user = getCurrentUser();
     if (!user) throw new Error("Authentication required to join space");
     return firestoreDb.joinInvite(tokenValue, user);
   },
-
-  // -------------------------------------------------------------
-  // EXPORT
-  // -------------------------------------------------------------
-  exportCsvUrl: (spaceId: string) => `/api/gas?action=exportCsv&spaceId=${spaceId}`,
 };

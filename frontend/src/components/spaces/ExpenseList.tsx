@@ -10,11 +10,13 @@ import { ExpandCardTrigger, ExpandCardModal } from "@/components/smoothui/expand
 
 export function ExpenseList({
   space,
+  targetCurrency,
   onAddExpense,
   onEditExpense,
   onDeleteExpense,
 }: {
   space: Space;
+  targetCurrency?: string;
   onAddExpense: () => void;
   onEditExpense: (e: Expense) => void;
   onDeleteExpense: (e: Expense) => void;
@@ -129,41 +131,56 @@ export function ExpenseList({
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <strong style={{ fontSize: 15, fontWeight: 700, color: "#1e2029" }}>
-                      {formatMoney(e.amount, e.currency || space.currency)}
-                    </strong>
+                  {(() => {
+                    const effectiveTarget = targetCurrency || space.currency || "INR";
+                    const isConverted = effectiveTarget.toUpperCase() !== (e.currency || space.currency).toUpperCase();
+                    const displayAmount = isConverted
+                      ? convertAmount(e.amount, e.currency || space.currency, effectiveTarget)
+                      : e.amount;
 
-                    <div style={{ position: "relative" }}>
-                      <button
-                        type="button"
-                        className="icon-btn sm"
-                        onClick={(evt) => {
-                          evt.stopPropagation();
-                          setOpenMenuId(isMenuOpen ? null : e.id);
-                        }}
-                        aria-label="Expense options"
-                        style={{ padding: 4, borderRadius: 6 }}
-                      >
-                        <MoreVertical size={15} />
-                      </button>
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                          <strong style={{ fontSize: 15, fontWeight: 700, color: "#1e2029" }}>
+                            {formatMoney(displayAmount, effectiveTarget)}
+                          </strong>
+                          {isConverted && (
+                            <small style={{ fontSize: 10.5, color: "#9ca3af" }}>
+                              orig. {formatMoney(e.amount, e.currency || space.currency)}
+                            </small>
+                          )}
+                        </div>
 
-                      {isMenuOpen && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 32,
-                            background: "#ffffff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 10,
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-                            zIndex: 50,
-                            padding: 6,
-                            minWidth: 120,
-                          }}
-                          onClick={(evt) => evt.stopPropagation()}
-                        >
+                        <div style={{ position: "relative" }}>
+                          <button
+                            type="button"
+                            className="icon-btn sm"
+                            onClick={(evt) => {
+                              evt.stopPropagation();
+                              setOpenMenuId(isMenuOpen ? null : e.id);
+                            }}
+                            aria-label="Expense options"
+                            style={{ padding: 4, borderRadius: 6 }}
+                          >
+                            <MoreVertical size={15} />
+                          </button>
+
+                          {isMenuOpen && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 32,
+                                background: "#ffffff",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 10,
+                                boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+                                zIndex: 50,
+                                padding: 6,
+                                minWidth: 120,
+                              }}
+                              onClick={(evt) => evt.stopPropagation()}
+                            >
                           <button
                             type="button"
                             style={{
@@ -216,10 +233,12 @@ export function ExpenseList({
                       )}
                     </div>
                   </div>
-                </ExpandCardTrigger>
-              </ScrollReveal>
-            );
-          })
+                );
+              })()}
+            </ExpandCardTrigger>
+          </ScrollReveal>
+        );
+      })
         )}
       </div>
 
@@ -275,48 +294,64 @@ export function ExpenseList({
             </div>
 
             {/* Total Amount Card */}
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid rgba(224, 86, 46, 0.18)",
-                borderRadius: 18,
-                padding: "18px 20px",
-                marginBottom: 18,
-                boxShadow: "0 2px 8px rgba(224, 86, 46, 0.05)",
-              }}
-            >
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>
-                Total Expense Amount
-              </span>
-              <div style={{ fontSize: 26, fontWeight: 700, color: "#1e2029", marginTop: 4 }}>
-                {formatMoney(selectedExpense.amount, selectedExpense.currency || space.currency)}
-              </div>
-              {selectedExpense.original_currency &&
-                selectedExpense.original_currency !== space.currency && (
-                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-                    Converted from {formatMoney(selectedExpense.original_amount ?? selectedExpense.amount, selectedExpense.original_currency)} @ {selectedExpense.exchange_rate} FX rate
-                  </div>
-                )}
+            {/* Total Amount Card */}
+            {(() => {
+              const effectiveTarget = targetCurrency || space.currency || "INR";
+              const isConverted = effectiveTarget.toUpperCase() !== (selectedExpense.currency || space.currency).toUpperCase();
+              const displayTotal = isConverted
+                ? convertAmount(selectedExpense.amount, selectedExpense.currency || space.currency, effectiveTarget)
+                : selectedExpense.amount;
 
-              {/* Multi-Currency Equivalent Badges */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-                {["USD", "EUR", "GBP", "INR", "AED"].filter(c => c !== (selectedExpense.currency || space.currency)).slice(0, 4).map(target => (
-                  <span
-                    key={target}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      background: "rgba(0, 0, 0, 0.04)",
-                      padding: "3px 8px",
-                      borderRadius: 6,
-                      color: "#4b5563",
-                    }}
-                  >
-                    ≈ {formatMoney(convertAmount(selectedExpense.amount, selectedExpense.currency || space.currency, target), target)}
+              return (
+                <div
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid rgba(224, 86, 46, 0.18)",
+                    borderRadius: 18,
+                    padding: "18px 20px",
+                    marginBottom: 18,
+                    boxShadow: "0 2px 8px rgba(224, 86, 46, 0.05)",
+                  }}
+                >
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>
+                    {isConverted ? `Total Expense Amount (in ${effectiveTarget})` : "Total Expense Amount"}
                   </span>
-                ))}
-              </div>
-            </div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: "#1e2029", marginTop: 4 }}>
+                    {formatMoney(displayTotal, effectiveTarget)}
+                  </div>
+                  {isConverted && (
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                      Base: {formatMoney(selectedExpense.amount, selectedExpense.currency || space.currency)}
+                    </div>
+                  )}
+                  {selectedExpense.original_currency &&
+                    selectedExpense.original_currency !== space.currency && (
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                        Converted from {formatMoney(selectedExpense.original_amount ?? selectedExpense.amount, selectedExpense.original_currency)} @ {selectedExpense.exchange_rate} FX rate
+                      </div>
+                    )}
+
+                  {/* Multi-Currency Equivalent Badges */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                    {["USD", "EUR", "GBP", "INR", "AED"].filter(c => c !== effectiveTarget).slice(0, 4).map(target => (
+                      <span
+                        key={target}
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: "rgba(0, 0, 0, 0.04)",
+                          padding: "3px 8px",
+                          borderRadius: 6,
+                          color: "#4b5563",
+                        }}
+                      >
+                        ≈ {formatMoney(convertAmount(selectedExpense.amount, selectedExpense.currency || space.currency, target), target)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Metadata (Payer & Date) */}
             <div
@@ -384,36 +419,52 @@ export function ExpenseList({
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 160, overflowY: "auto" }}>
-                {(selectedExpense.splits && selectedExpense.splits.length > 0
-                  ? selectedExpense.splits
-                  : space.members.map((m) => ({
-                      user_id: m.id,
-                      amount: selectedExpense.amount / Math.max(space.members.length, 1),
-                    }))
-                ).map((sp) => {
-                  const member = space.members.find((m) => m.id === sp.user_id);
-                  return (
-                    <div
-                      key={sp.user_id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        background: "#ffffff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        padding: "8px 12px",
-                      }}
-                    >
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1e2029" }}>
-                        {member?.name || "Member"}
-                      </span>
-                      <strong style={{ fontSize: 13, color: "#e0562e" }}>
-                        {formatMoney(sp.amount, space.currency)}
-                      </strong>
-                    </div>
-                  );
-                })}
+                {(() => {
+                  const effectiveTarget = targetCurrency || space.currency || "INR";
+                  const isConverted = effectiveTarget.toUpperCase() !== (selectedExpense.currency || space.currency).toUpperCase();
+                  const splits = selectedExpense.splits && selectedExpense.splits.length > 0
+                    ? selectedExpense.splits
+                    : space.members.map((m) => ({
+                        user_id: m.id,
+                        amount: selectedExpense.amount / Math.max(space.members.length, 1),
+                      }));
+
+                  return splits.map((sp) => {
+                    const member = space.members.find((m) => m.id === sp.user_id);
+                    const splitDisplay = isConverted
+                      ? convertAmount(sp.amount, selectedExpense.currency || space.currency, effectiveTarget)
+                      : sp.amount;
+
+                    return (
+                      <div
+                        key={sp.user_id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          background: "#ffffff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: "8px 12px",
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e2029" }}>
+                          {member?.name || "Member"}
+                        </span>
+                        <div style={{ textAlign: "right" }}>
+                          <strong style={{ fontSize: 13, color: "#e0562e", display: "block" }}>
+                            {formatMoney(splitDisplay, effectiveTarget)}
+                          </strong>
+                          {isConverted && (
+                            <small style={{ fontSize: 10, color: "#9ca3af" }}>
+                              orig. {formatMoney(sp.amount, selectedExpense.currency || space.currency)}
+                            </small>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 

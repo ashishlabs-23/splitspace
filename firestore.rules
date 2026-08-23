@@ -1,59 +1,189 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
+    function authEmail() {
+      return request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : "";
+    }
+
+    function spaceDoc(spaceId) {
+      return get(/databases/$(database)/documents/spaces/$(spaceId));
+    }
+
     function isSpaceMember(spaceId) {
-      return isSignedIn() && (
-        request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberUids ||
-        get(/databases/$(database)/documents/spaces/$(spaceId)).data.createdBy == request.auth.uid
-      );
+      return isSignedIn() && request.auth.uid in spaceDoc(spaceId).data.memberUids;
     }
 
     function isSpaceOwner(spaceId) {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/spaces/$(spaceId)).data.createdBy == request.auth.uid
+        (spaceDoc(spaceId).data.keys().hasAny(['ownerUid']) && spaceDoc(spaceId).data.ownerUid == request.auth.uid) ||
+        (spaceDoc(spaceId).data.keys().hasAny(['createdBy']) && spaceDoc(spaceId).data.createdBy == request.auth.uid)
       );
     }
 
-    // 1. User Profiles: Only the account owner can modify their profile
+    function baseSpaceFieldsUnchanged() {
+      return request.resource.data.id == resource.data.id
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function ownerManagedSpaceUpdate() {
+      return isSpaceOwner(spaceId)
+        && baseSpaceFieldsUnchanged()
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberEmails is list
+        && request.resource.data.members is list;
+    }
+
+    function selfJoinSpaceUpdate() {
+      // Any signed-in user can join a space if:
+      // - Core immutable fields are unchanged (id, createdBy, createdAt)
+      // - They are adding themselves to memberUids (not removing anyone)
+      // - The result includes their own UID
+      return isSignedIn()
+        && baseSpaceFieldsUnchanged()
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.hasAll(resource.data.memberUids)
+        && request.resource.data.memberUids.hasAny([request.auth.uid])
+        && request.resource.data.memberEmails is list
+        && request.resource.data.members is list;
+    }
+
+    function selfLeaveSpaceUpdate() {
+      return isSpaceMember(spaceId)
+        && !isSpaceOwner(spaceId)
+        && baseSpaceFieldsUnchanged()
+        && request.resource.data.memberUids is list
+        && !(request.auth.uid in request.resource.data.memberUids)
+        && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+        && request.resource.data.members is list;
+    }
+
+    function resourceHasCreator() {
+      return resource.data.keys().hasAny(['created_by_uid']);
+    }
+
+    function validExpensePayload(expenseId) {
+      return request.resource.data.keys().hasOnly([
+          'id',
+          'title',
+          'amount',
+          'currency',
+          'original_amount',
+          'original_currency',
+          'exchange_rate',
+          'paid_by',
+          'category',
+          'note',
+          'created_at',
+          'updated_at',
+          'created_by_uid',
+          'split_mode',
+          'splits'
+        ])
+        && request.resource.data.id == expenseId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.currency is string
+        && request.resource.data.category is string
+        && request.resource.data.paid_by is map
+        && request.resource.data.splits is list
+        && request.resource.data.created_at is string
+        && request.resource.data.updated_at is string
+        && request.resource.data.created_by_uid is string
+        && request.resource.data.created_by_uid == request.auth.uid
+        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || request.resource.data.note is string);
+    }
+
+    function validSettlementPayload(settlementId) {
+      return request.resource.data.keys().hasOnly([
+          'id',
+          'space_id',
+          'from_member',
+          'to_member',
+          'amount',
+          'currency',
+          'note',
+          'created_at',
+          'updated_at',
+          'created_by_uid'
+        ])
+        && request.resource.data.id == settlementId
+        && request.resource.data.space_id == spaceId
+        && request.resource.data.from_member is map
+        && request.resource.data.to_member is map
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.currency is string
+        && request.resource.data.created_at is string
+        && request.resource.data.updated_at is string
+        && request.resource.data.created_by_uid is string
+        && request.resource.data.created_by_uid == request.auth.uid
+        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || request.resource.data.note is string);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
     }
 
-    // 2. Spaces: Members can read/update; joining users can add themselves; owner can delete
     match /spaces/{spaceId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid in resource.data.memberUids || resource.data.createdBy == request.auth.uid
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == 1
+        && request.resource.data.memberUids[0] == request.auth.uid
+        && request.resource.data.memberEmails is list
+        && request.resource.data.memberEmails.size() == 1
+        && authEmail() != ""
+        && request.resource.data.memberEmails[0] == authEmail()
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 1;
+      allow update: if ownerManagedSpaceUpdate() || selfJoinSpaceUpdate() || selfLeaveSpaceUpdate();
+      allow delete: if isSignedIn() && (
+        (resource.data.keys().hasAny(['ownerUid']) && resource.data.ownerUid == request.auth.uid) ||
+        (resource.data.keys().hasAny(['createdBy']) && resource.data.createdBy == request.auth.uid)
       );
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isSignedIn() && (
-        request.auth.uid in resource.data.memberUids ||
-        resource.data.createdBy == request.auth.uid ||
-        request.auth.uid in request.resource.data.memberUids
-      );
-      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
 
-      // Expenses: Only verified space members can read/create/edit expenses
       match /expenses/{expenseId} {
-        allow read, write: if isSpaceMember(spaceId);
+        allow read: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId) && validExpensePayload(expenseId);
+        allow update: if isSpaceMember(spaceId)
+          && validExpensePayload(expenseId)
+          && request.resource.data.created_at == resource.data.created_at
+          && request.resource.data.created_by_uid == resource.data.created_by_uid
+          && (isSpaceOwner(spaceId) || (resourceHasCreator() && resource.data.created_by_uid == request.auth.uid));
+        allow delete: if isSpaceMember(spaceId)
+          && (isSpaceOwner(spaceId) || (resourceHasCreator() && resource.data.created_by_uid == request.auth.uid));
       }
 
-      // Settlements: Only verified space members can read/record payments
       match /settlements/{settlementId} {
-        allow read, write: if isSpaceMember(spaceId);
+        allow read: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId) && validSettlementPayload(settlementId);
+        allow update: if false;
+        allow delete: if isSpaceMember(spaceId)
+          && (isSpaceOwner(spaceId) || (resourceHasCreator() && resource.data.created_by_uid == request.auth.uid));
       }
     }
 
-    // 3. Invites: Public read (for invite preview) and signed-in write
     match /invites/{token} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.spaceId is string
+        && isSpaceMember(request.resource.data.spaceId);
+      allow update, delete: if isSignedIn()
+        && (resource.data.createdByUid == request.auth.uid || isSpaceOwner(resource.data.spaceId));
     }
   }
 }

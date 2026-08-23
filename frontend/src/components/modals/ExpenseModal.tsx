@@ -504,7 +504,6 @@ export function ExpenseModal({
             <input
               ref={titleInputRef}
               autoFocus
-              placeholder="e.g. Dinner at Fisherman's Wharf, Villa booking..."
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);

@@ -14,6 +14,7 @@ import {
   Zap,
   Activity,
   Check,
+  Download,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -27,6 +28,7 @@ export function SpaceSidebar({
   onNewSpace,
   onDeleteSpace,
   onSignOut,
+  onExport,
 }: {
   spaces: Space[];
   active?: Space;
@@ -37,6 +39,7 @@ export function SpaceSidebar({
   onNewSpace: () => void;
   onDeleteSpace: (s: Space) => void;
   onSignOut?: () => void;
+  onExport?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -63,7 +66,6 @@ export function SpaceSidebar({
       try {
         await api.logout();
       } catch {}
-      localStorage.removeItem("splitspace_token");
       location.reload();
     }
   };
@@ -83,7 +85,23 @@ export function SpaceSidebar({
           }}
           title="Back to Landing Page"
         >
-          <div className="brand-dot">S</div>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: "50%",
+              background: "#ffffff",
+              border: "1.5px solid rgba(200, 126, 10, 0.28)",
+              boxShadow: "0 2px 10px rgba(200, 126, 10, 0.15)",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+              overflow: "hidden",
+              padding: 2,
+            }}
+          >
+            <img src="/logo.png" alt="SplitSpace Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
           <div>
             <div className="brand-name">SplitSpace</div>
             <div className="brand-sub">Group expenses, simplified</div>
@@ -157,6 +175,39 @@ export function SpaceSidebar({
             ))}
           </div>
         </div>
+
+        {/* Active Space Quick Export Option */}
+        {active && onExport && (
+          <div style={{ padding: "0 14px 10px" }}>
+            <button
+              type="button"
+              onClick={() => {
+                onExport();
+                onCloseSidebar();
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "9px 14px",
+                borderRadius: 12,
+                background: "rgba(241, 107, 45, 0.08)",
+                border: "1px solid rgba(241, 107, 45, 0.22)",
+                color: "#c24912",
+                fontWeight: 700,
+                fontSize: 12.5,
+                cursor: "pointer",
+                transition: "all 0.18s ease",
+              }}
+              className="hover:bg-orange-100"
+              aria-label="Export CSV or Print PDF"
+            >
+              <Download size={14} /> Export CSV / Print PDF
+            </button>
+          </div>
+        )}
 
         {/* ── FUTURISTIC USER PROFILE & SETTINGS MENU TRIGGER ── */}
         <div className="sidebar-foot" ref={menuRef} style={{ position: "relative", paddingBottom: 18 }}>

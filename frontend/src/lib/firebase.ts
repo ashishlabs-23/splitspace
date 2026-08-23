@@ -1,7 +1,7 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
-  Auth,
+  type Auth,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -9,13 +9,14 @@ import {
   updateProfile,
   signOut as firebaseSignOut,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  sendEmailVerification,
+  reload,
   onAuthStateChanged,
-  User as FirebaseUser,
+  type User as FirebaseUser,
 } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
-import { Member } from "./api";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import type { Member } from "./api";
 
-// Firebase Configuration from Environment Variables
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
@@ -25,78 +26,109 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
 };
 
-export const isFirebaseConfigured = (): boolean => {
-  return Boolean(
+export const isFirebaseConfigured = (): boolean =>
+  Boolean(
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   );
-};
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 
-if (typeof window !== "undefined") {
-  if (isFirebaseConfigured()) {
-    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  }
+if (typeof window !== "undefined" && isFirebaseConfigured()) {
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
 }
 
 export { auth, db };
 
 export function mapFirebaseUserToMember(user: FirebaseUser): Member {
+  const isGoogle = user.providerData?.some((provider) => provider.providerId === "google.com") || false;
+
   return {
     id: user.uid,
-    name: user.displayName || user.email?.split("@")[0] || "User",
-    email: user.email || "",
+    name: user.displayName?.trim() || user.email?.split("@")[0] || "User",
+    email: (user.email || "").toLowerCase().trim(),
     role: "owner",
     avatar: user.photoURL || null,
+    emailVerified: Boolean(user.emailVerified || isGoogle),
+    authProvider: isGoogle ? "google" : "password",
+    userUid: user.uid,
   };
 }
 
 export const firebaseAuthService = {
   async loginWithEmail(email: string, pass: string, name?: string): Promise<{ user: Member; token: string }> {
-    if (!auth) throw new Error("Firebase is not configured. Please check your credentials in .env.local.");
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    if (name && name.trim()) {
+    if (!auth) throw new Error("Firebase is not configured. Please check `frontend/.env.local`.");
+    const normalizedEmail = email.toLowerCase().trim();
+    const cred = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
+
+    if (name?.trim() && name.trim() !== cred.user.displayName) {
       try {
         await updateProfile(cred.user, { displayName: name.trim() });
-      } catch (e) {
-        console.warn("Could not update displayName on login:", e);
+      } catch (error) {
+        console.warn("Could not update display name on login:", error);
       }
     }
+
     const token = await cred.user.getIdToken();
     const user = mapFirebaseUserToMember({
       ...cred.user,
-      displayName: (name && name.trim()) || cred.user.displayName,
+      displayName: name?.trim() || cred.user.displayName,
     } as FirebaseUser);
+
     return { user, token };
   },
 
   async registerWithEmail(name: string, email: string, pass: string): Promise<{ user: Member; token: string }> {
-    if (!auth) throw new Error("Firebase is not configured. Please check your credentials in .env.local.");
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    if (name.trim()) {
-      await updateProfile(cred.user, { displayName: name.trim() });
+    if (!auth) throw new Error("Firebase is not configured. Please check `frontend/.env.local`.");
+    const normalizedEmail = email.toLowerCase().trim();
+    const trimmedName = name.trim();
+    const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, pass);
+
+    if (trimmedName) {
+      await updateProfile(cred.user, { displayName: trimmedName });
     }
+
+    try {
+      await sendEmailVerification(cred.user);
+    } catch (error) {
+      console.warn("Could not send email verification automatically:", error);
+    }
+
     const token = await cred.user.getIdToken();
     const user = mapFirebaseUserToMember({
       ...cred.user,
-      displayName: name.trim() || cred.user.displayName,
+      displayName: trimmedName || cred.user.displayName,
     } as FirebaseUser);
+
     return { user, token };
   },
 
-  async loginWithGoogle(): Promise<{ user: Member; token: string }> {
-    if (!auth) throw new Error("Firebase is not configured. Please check your credentials in .env.local.");
+  async loginWithGoogle(customName?: string): Promise<{ user: Member; token: string }> {
+    if (!auth) throw new Error("Firebase is not configured. Please check `frontend/.env.local`.");
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     const cred = await signInWithPopup(auth, provider);
+
+    const chosenName = customName?.trim() || cred.user.displayName || cred.user.email?.split("@")[0] || "User";
+    if (customName?.trim() && customName.trim() !== cred.user.displayName) {
+      try {
+        await updateProfile(cred.user, { displayName: customName.trim() });
+      } catch (error) {
+        console.warn("Could not update display name on Google login:", error);
+      }
+    }
+
     const token = await cred.user.getIdToken();
-    const user = mapFirebaseUserToMember(cred.user);
+    const user = mapFirebaseUserToMember({
+      ...cred.user,
+      displayName: chosenName,
+    } as FirebaseUser);
+
     return { user, token };
   },
 
@@ -104,44 +136,37 @@ export const firebaseAuthService = {
     if (auth) {
       await firebaseSignOut(auth);
     }
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("splitspace_token");
-      localStorage.removeItem("splitspace_user");
-    }
   },
 
   async sendPasswordReset(email: string): Promise<void> {
-    if (!auth) throw new Error("Firebase is not configured. Please check your credentials in .env.local.");
-    await firebaseSendPasswordResetEmail(auth, email);
+    if (!auth) throw new Error("Firebase is not configured. Please check `frontend/.env.local`.");
+    await firebaseSendPasswordResetEmail(auth, email.toLowerCase().trim());
+  },
+
+  async resendVerificationEmail(): Promise<void> {
+    if (!auth?.currentUser) throw new Error("No authenticated user to send verification email to.");
+    await sendEmailVerification(auth.currentUser);
+  },
+
+  async reloadUser(): Promise<Member | null> {
+    if (!auth?.currentUser) return null;
+    await reload(auth.currentUser);
+    return mapFirebaseUserToMember(auth.currentUser);
+  },
+
+  getCurrentUser(): Member | null {
+    if (!auth?.currentUser) return null;
+    return mapFirebaseUserToMember(auth.currentUser);
   },
 
   onAuthChange(callback: (user: Member | null) => void): () => void {
     if (!auth) {
-      const cached = typeof window !== "undefined" ? localStorage.getItem("splitspace_user") : null;
-      if (cached) {
-        try {
-          callback(JSON.parse(cached));
-        } catch {
-          callback(null);
-        }
-      } else {
-        callback(null);
-      }
+      callback(null);
       return () => {};
     }
 
-    return onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        const member = mapFirebaseUserToMember(fbUser);
-        const token = await fbUser.getIdToken();
-        localStorage.setItem("splitspace_token", token);
-        localStorage.setItem("splitspace_user", JSON.stringify(member));
-        callback(member);
-      } else {
-        localStorage.removeItem("splitspace_token");
-        localStorage.removeItem("splitspace_user");
-        callback(null);
-      }
+    return onAuthStateChanged(auth, (fbUser) => {
+      callback(fbUser ? mapFirebaseUserToMember(fbUser) : null);
     });
   },
 };

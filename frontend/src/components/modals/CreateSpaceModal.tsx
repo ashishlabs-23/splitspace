@@ -56,7 +56,6 @@ export function CreateSpaceModal({
             What are you tracking?
             <input
               autoFocus
-              placeholder="e.g. Goa Trip, Flatmates, Euro Tour"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && create()}
@@ -80,7 +79,6 @@ export function CreateSpaceModal({
             <label>
               Dates (optional)
               <input
-                placeholder="e.g. 18–20 Aug"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
               />

@@ -1,7 +1,7 @@
 "use client";
 import { Summary, Member, Space, SettlementRecord } from "@/lib/api";
 import { ShieldCheck, ArrowRight, CheckCircle, Trash2, History } from "lucide-react";
-import { formatMoney } from "@/lib/currencies";
+import { formatMoney, convertAmount } from "@/lib/currencies";
 import ScrollReveal from "@/components/ui/scroll-reveal";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -9,17 +9,22 @@ export function SettlementList({
   space,
   summary,
   currentUser,
+  targetCurrency,
   onSettleUp,
   onDeleteSettlement,
 }: {
   space: Space;
   summary: Summary | null;
   currentUser: Member | null;
+  targetCurrency?: string;
   onSettleUp: (payerId: string, recipientId: string, amount: number) => void;
   onDeleteSettlement: (settlementId: string) => void;
 }) {
   const settlements = summary?.settlements ?? [];
   const recorded = summary?.recorded_settlements ?? [];
+
+  const effectiveTarget = targetCurrency || space.currency || "USD";
+  const isConverted = effectiveTarget.toUpperCase() !== (space.currency || "USD").toUpperCase();
 
   return (
     <div className="mini-settlements">
@@ -27,6 +32,10 @@ export function SettlementList({
       {settlements.map((s, i) => {
         const isUserPayer = currentUser && s.from_member.email === currentUser.email;
         const isUserRecipient = currentUser && s.to_member.email === currentUser.email;
+
+        const displayAmount = isConverted
+          ? convertAmount(s.amount, space.currency, effectiveTarget)
+          : s.amount;
 
         return (
           <ScrollReveal
@@ -54,7 +63,14 @@ export function SettlementList({
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <b style={{ fontSize: 14 }}>{formatMoney(s.amount, space.currency)}</b>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                  <b style={{ fontSize: 14 }}>{formatMoney(displayAmount, effectiveTarget)}</b>
+                  {isConverted && (
+                    <small style={{ fontSize: 10, color: "var(--text3)" }}>
+                      orig. {formatMoney(s.amount, space.currency)}
+                    </small>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="btn primary sm"
@@ -86,27 +102,34 @@ export function SettlementList({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {recorded.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  padding: "6px 10px",
-                  fontSize: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div>
-                  <strong>{r.from_member.name}</strong> paid <strong>{r.to_member.name}</strong>
-                  <span style={{ marginLeft: 6, color: "var(--teal)", fontWeight: 600 }}>
-                    {formatMoney(r.amount, r.currency || space.currency)}
-                  </span>
-                  {r.note && <small style={{ display: "block", color: "var(--text3)" }}>{r.note}</small>}
-                </div>
+            {recorded.map((r) => {
+              const recConverted = effectiveTarget.toUpperCase() !== (r.currency || space.currency).toUpperCase();
+              const recDisplay = recConverted
+                ? convertAmount(r.amount, r.currency || space.currency, effectiveTarget)
+                : r.amount;
+
+              return (
+                <div
+                  key={r.id}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <strong>{r.from_member.name}</strong> paid <strong>{r.to_member.name}</strong>
+                    <span style={{ marginLeft: 6, color: "var(--teal)", fontWeight: 600 }}>
+                      {formatMoney(recDisplay, effectiveTarget)}
+                      {recConverted && ` (${formatMoney(r.amount, r.currency || space.currency)})`}
+                    </span>
+                    {r.note && <small style={{ display: "block", color: "var(--text3)" }}>{r.note}</small>}
+                  </div>
 
                 <button
                   type="button"
@@ -123,7 +146,8 @@ export function SettlementList({
                   <Trash2 size={12} />
                 </button>
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}

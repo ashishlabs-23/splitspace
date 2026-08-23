@@ -10,6 +10,8 @@ import {
   where,
   orderBy,
   writeBatch,
+  runTransaction,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode } from "./api";
@@ -25,36 +27,87 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function fallbackName(name: string | undefined | null, email: string): string {
+  return name?.trim() || email.split("@")[0] || "Member";
+}
+
+function memberMatchesUser(member: Member, userId?: string, userEmail?: string): boolean {
+  if (userId && member.userUid === userId) return true;
+  if (userId && member.id === userId) return true;
+  if (userEmail && member.email?.toLowerCase() === userEmail.toLowerCase()) return true;
+  return false;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
 export const firestoreDb = {
   // -------------------------------------------------------------
   // USER PROFILE
   // -------------------------------------------------------------
-  async syncUser(user: { id: string; email: string; name: string; avatar?: string | null }) {
+  async syncUser(user: {
+    id: string;
+    email: string;
+    name: string;
+    avatar?: string | null;
+    emailVerified?: boolean;
+    authProvider?: "password" | "google";
+  }) {
     if (!db || !user.id) return;
     const userRef = doc(db, "users", user.id);
     const existing = await getDoc(userRef);
+    const cleanUsername = user.name?.trim() || user.email.split("@")[0];
+    const cleanEmail = user.email.toLowerCase().trim();
+
     if (!existing.exists()) {
       await setDoc(userRef, {
+        uid: user.id,
+        username: cleanUsername,
+        email: cleanEmail,
+        photoURL: user.avatar || null,
+        authProvider: user.authProvider || "password",
+        emailVerified: Boolean(user.emailVerified),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        // Compatibility fields for existing UI components
         id: user.id,
-        email: user.email.toLowerCase(),
-        name: user.name || user.email.split("@")[0],
+        name: cleanUsername,
         avatar: user.avatar || null,
-        createdAt: nowIso(),
       });
-    } else if (user.name && user.name !== existing.data()?.name) {
-      await updateDoc(userRef, { name: user.name });
+    } else {
+      const data = existing.data();
+      const updates: any = {
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        emailVerified: Boolean(user.emailVerified ?? data?.emailVerified),
+      };
+      if (cleanUsername && cleanUsername !== data?.username && cleanUsername !== data?.name) {
+        updates.username = cleanUsername;
+        updates.name = cleanUsername;
+      }
+      if (user.avatar) {
+        updates.photoURL = user.avatar;
+        updates.avatar = user.avatar;
+      }
+      await updateDoc(userRef, updates);
     }
   },
 
   // -------------------------------------------------------------
   // SPACES
   // -------------------------------------------------------------
-  async getSpaces(userId?: string, userEmail?: string): Promise<Space[]> {
+  async getSpaces(userId?: string, userEmail?: string, userName?: string): Promise<Space[]> {
     if (!db) return [];
     if (!userId && !userEmail) return [];
 
     const spacesRef = collection(db, "spaces");
-    let q = query(spacesRef, where("memberUids", "array-contains", userId));
+    const q = query(spacesRef, where("memberUids", "array-contains", userId));
     const snap = await getDocs(q);
 
     const spaces: Space[] = [];
@@ -62,7 +115,27 @@ export const firestoreDb = {
       const data = d.data();
       // Fetch expenses subcollection
       const expSnap = await getDocs(collection(db, "spaces", d.id, "expenses"));
-      const expenses = expSnap.docs.map((ed) => ed.data() as Expense);
+      const rawExpenses = expSnap.docs.map((ed) => ed.data() as Expense);
+
+      // Sync member names with actual username if matching current user
+      const members: Member[] = (data.members || []).map((m: Member) => {
+        const isSelf = memberMatchesUser(m, userId, userEmail);
+        if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
+          return { ...m, name: userName.trim() };
+        }
+        return m;
+      });
+
+      const expenses: Expense[] = rawExpenses.map((exp) => {
+        const isSelf = memberMatchesUser(exp.paid_by, userId, userEmail);
+        if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
+          return {
+            ...exp,
+            paid_by: { ...exp.paid_by, name: userName.trim() },
+          };
+        }
+        return exp;
+      });
 
       spaces.push({
         id: d.id,
@@ -70,22 +143,16 @@ export const firestoreDb = {
         emoji: data.emoji || "💸",
         period: data.period || null,
         currency: data.currency || "USD",
-        members: data.members || [],
+        members: members,
         expenses: expenses,
         created_at: data.createdAt || nowIso(),
       });
     }
 
-    // If user has no spaces yet, seed the default Goa Weekend demo space
-    if (spaces.length === 0 && userId) {
-      const demoSpace = await this.seedInitialSpace(userId, userEmail || "");
-      if (demoSpace) spaces.push(demoSpace);
-    }
-
     return spaces;
   },
 
-  async getSpace(spaceId: string): Promise<Space> {
+  async getSpace(spaceId: string, currentUserName?: string, currentUserEmail?: string, currentUserId?: string): Promise<Space> {
     if (!db) throw new Error("Database not connected");
     const spaceRef = doc(db, "spaces", spaceId);
     const spaceSnap = await getDoc(spaceRef);
@@ -93,7 +160,26 @@ export const firestoreDb = {
 
     const data = spaceSnap.data();
     const expSnap = await getDocs(query(collection(db, "spaces", spaceId, "expenses"), orderBy("created_at", "desc")));
-    const expenses = expSnap.docs.map((ed) => ed.data() as Expense);
+    const rawExpenses = expSnap.docs.map((ed) => ed.data() as Expense);
+
+    const members: Member[] = (data.members || []).map((m: Member) => {
+      const isSelf = memberMatchesUser(m, currentUserId, currentUserEmail);
+      if (isSelf && currentUserName && currentUserName.trim().length >= 2 && currentUserName.toLowerCase() !== "user") {
+        return { ...m, name: currentUserName.trim() };
+      }
+      return m;
+    });
+
+    const expenses: Expense[] = rawExpenses.map((exp) => {
+      const isSelf = memberMatchesUser(exp.paid_by, currentUserId, currentUserEmail);
+      if (isSelf && currentUserName && currentUserName.trim().length >= 2 && currentUserName.toLowerCase() !== "user") {
+        return {
+          ...exp,
+          paid_by: { ...exp.paid_by, name: currentUserName.trim() },
+        };
+      }
+      return exp;
+    });
 
     return {
       id: spaceSnap.id,
@@ -101,7 +187,7 @@ export const firestoreDb = {
       emoji: data.emoji || "💸",
       period: data.period || null,
       currency: data.currency || "USD",
-      members: data.members || [],
+      members: members,
       expenses: expenses,
       created_at: data.createdAt || nowIso(),
     };
@@ -113,12 +199,14 @@ export const firestoreDb = {
   ): Promise<Space> {
     if (!db) throw new Error("Database not connected");
     const spaceId = generateId();
+    const cleanEmail = normalizeEmail(user.email);
     const ownerMember: Member = {
       id: generateId(),
-      name: user.name || user.email.split("@")[0] || "Owner",
-      email: user.email,
+      name: fallbackName(user.name, cleanEmail),
+      email: cleanEmail,
       role: "owner",
       avatar: user.avatar || null,
+      userUid: user.id,
     };
 
     const spaceData = {
@@ -128,9 +216,12 @@ export const firestoreDb = {
       period: body.period || null,
       currency: (body.currency || "USD").toUpperCase(),
       createdBy: user.id,
+      ownerUid: user.id,
       memberUids: [user.id],
+      memberEmails: [cleanEmail],
       members: [ownerMember],
       createdAt: nowIso(),
+      updatedAt: nowIso(),
     };
 
     await setDoc(doc(db, "spaces", spaceId), spaceData);
@@ -166,39 +257,65 @@ export const firestoreDb = {
   async leaveSpace(spaceId: string, user: Member): Promise<{ ok: boolean }> {
     if (!db) throw new Error("Database not connected");
     const spaceRef = doc(db, "spaces", spaceId);
-    const spaceSnap = await getDoc(spaceRef);
-    if (!spaceSnap.exists()) return { ok: true };
+    await runTransaction(db, async (transaction) => {
+      const spaceSnap = await transaction.get(spaceRef);
+      if (!spaceSnap.exists()) return;
 
-    const data = spaceSnap.data();
-    const updatedMembers = (data.members || []).filter(
-      (m: Member) => m.email.toLowerCase() !== user.email.toLowerCase()
-    );
-    const updatedUids = (data.memberUids || []).filter((uid: string) => uid !== user.id);
+      const data = spaceSnap.data();
+      if (data.ownerUid === user.id) {
+        throw new Error("The space owner cannot leave. Delete the space or transfer ownership first.");
+      }
 
-    await updateDoc(spaceRef, {
-      members: updatedMembers,
-      memberUids: updatedUids,
+      const updatedMembers = (data.members || []).filter(
+        (member: Member) => !memberMatchesUser(member, user.id, user.email),
+      );
+      const updatedUids = (data.memberUids || []).filter((uid: string) => uid !== user.id);
+      const updatedEmails = (data.memberEmails || []).filter((email: string) => email !== normalizeEmail(user.email));
+
+      transaction.update(spaceRef, {
+        members: updatedMembers,
+        memberUids: updatedUids,
+        memberEmails: updatedEmails,
+        updatedAt: nowIso(),
+      });
     });
+
     return { ok: true };
   },
 
   async addMember(spaceId: string, body: { name: string; email: string }): Promise<Member> {
     if (!db) throw new Error("Database not connected");
     const spaceRef = doc(db, "spaces", spaceId);
-    const spaceSnap = await getDoc(spaceRef);
-    if (!spaceSnap.exists()) throw new Error("Space not found");
-
-    const data = spaceSnap.data();
+    const normalizedEmail = normalizeEmail(body.email);
     const newMember: Member = {
       id: generateId(),
-      name: body.name.trim(),
-      email: body.email.toLowerCase().trim(),
+      name: fallbackName(body.name, normalizedEmail),
+      email: normalizedEmail,
       role: "member",
       avatar: null,
+      userUid: null,
     };
 
-    const members = [...(data.members || []), newMember];
-    await updateDoc(spaceRef, { members });
+    await runTransaction(db, async (transaction) => {
+      const spaceSnap = await transaction.get(spaceRef);
+      if (!spaceSnap.exists()) throw new Error("Space not found");
+
+      const data = spaceSnap.data();
+      const existing = (data.members || []).some(
+        (member: Member) => normalizeEmail(member.email) === normalizedEmail,
+      );
+      if (existing) {
+        throw new Error("That email is already part of this space.");
+      }
+
+      const members = [...(data.members || []), newMember];
+      transaction.update(spaceRef, {
+        members,
+        memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
+        updatedAt: nowIso(),
+      });
+    });
+
     return newMember;
   },
 
@@ -219,13 +336,15 @@ export const firestoreDb = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
-    }
+    },
+    actor: Member,
   ): Promise<Expense> {
     if (!db) throw new Error("Database not connected");
     const space = await this.getSpace(spaceId);
     const payer = space.members.find((m) => m.id === body.paid_by) || space.members[0];
 
     const expId = generateId();
+    const timestamp = nowIso();
     const newExpense: Expense = {
       id: expId,
       title: body.title.trim(),
@@ -239,7 +358,9 @@ export const firestoreDb = {
       note: body.note || null,
       split_mode: body.split_mode || "equal",
       splits: body.splits || [],
-      created_at: nowIso(),
+      created_at: timestamp,
+      updated_at: timestamp,
+      created_by_uid: actor.id,
     };
 
     await setDoc(doc(db, "spaces", spaceId, "expenses", expId), newExpense);
@@ -261,11 +382,16 @@ export const firestoreDb = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
-    }
+    },
+    actor: Member,
   ): Promise<Expense> {
     if (!db) throw new Error("Database not connected");
     const space = await this.getSpace(spaceId);
     const payer = space.members.find((m) => m.id === body.paid_by) || space.members[0];
+    const expenseRef = doc(db, "spaces", spaceId, "expenses", expenseId);
+    const existingExpense = await getDoc(expenseRef);
+    if (!existingExpense.exists()) throw new Error("Expense not found");
+    const existingData = existingExpense.data() as Expense;
 
     const updatedExpense: Expense = {
       id: expenseId,
@@ -280,10 +406,12 @@ export const firestoreDb = {
       note: body.note || null,
       split_mode: body.split_mode || "equal",
       splits: body.splits || [],
-      created_at: nowIso(),
+      created_at: existingData.created_at || nowIso(),
+      updated_at: nowIso(),
+      created_by_uid: existingData.created_by_uid || actor.id,
     };
 
-    await setDoc(doc(db, "spaces", spaceId, "expenses", expenseId), updatedExpense);
+    await setDoc(expenseRef, updatedExpense);
     return updatedExpense;
   },
 
@@ -310,7 +438,8 @@ export const firestoreDb = {
       amount: number;
       currency?: string;
       note?: string;
-    }
+    },
+    actor: Member,
   ): Promise<SettlementRecord> {
     if (!db) throw new Error("Database not connected");
     const space = await this.getSpace(spaceId);
@@ -328,6 +457,7 @@ export const firestoreDb = {
     };
 
     const settleId = generateId();
+    const timestamp = nowIso();
     const settlement: SettlementRecord = {
       id: settleId,
       space_id: spaceId,
@@ -336,7 +466,9 @@ export const firestoreDb = {
       amount: Number(body.amount),
       currency: (body.currency || space.currency).toUpperCase(),
       note: body.note || null,
-      created_at: nowIso(),
+      created_at: timestamp,
+      updated_at: timestamp,
+      created_by_uid: actor.id,
     };
 
     await setDoc(doc(db, "spaces", spaceId, "settlements", settleId), settlement);
@@ -442,9 +574,7 @@ export const firestoreDb = {
     }
 
     const currentMember = members.find(
-      (m) =>
-        (currentUserEmail && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-        (currentUserId && m.id === currentUserId)
+      (m) => memberMatchesUser(m, currentUserId, currentUserEmail),
     );
     const callerBalance = currentMember && memberTotals[currentMember.id]
       ? memberTotals[currentMember.id].net_balance
@@ -466,14 +596,23 @@ export const firestoreDb = {
   // -------------------------------------------------------------
   // INVITES
   // -------------------------------------------------------------
-  async createInvite(spaceId: string): Promise<{ url: string; token: string }> {
+  async createInvite(spaceId: string, user: Member): Promise<{ url: string; token: string }> {
     if (!db) throw new Error("Database not connected");
     const token = generateId().replace(/-/g, "").substring(0, 16);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    const spaceRef = doc(db, "spaces", spaceId);
+    const spaceSnap = await getDoc(spaceRef);
+    const spaceData = spaceSnap.exists() ? spaceSnap.data() : null;
+
     await setDoc(doc(db, "invites", token), {
       token,
       spaceId,
+      spaceTitle: spaceData?.title || "Shared Space",
+      spaceEmoji: spaceData?.emoji || "👥",
+      spaceCurrency: spaceData?.currency || "INR",
+      createdByUid: user.id,
+      createdByEmail: normalizeEmail(user.email),
       expiresAt,
       createdAt: nowIso(),
     });
@@ -492,144 +631,61 @@ export const firestoreDb = {
       throw new Error("Invite link has expired");
     }
 
-    const space = await this.getSpace(inv.spaceId);
     return {
-      space_id: space.id,
-      title: space.title,
-      emoji: space.emoji,
+      space_id: inv.spaceId,
+      title: inv.spaceTitle || "Shared Space",
+      emoji: inv.spaceEmoji || "👥",
     };
   },
 
   async joinInvite(token: string, user: Member): Promise<{ space_id: string }> {
     if (!db) throw new Error("Database not connected");
-    const invSnap = await getDoc(doc(db, "invites", token));
-    if (!invSnap.exists()) throw new Error("Invite link is invalid or expired");
+    const inviteRef = doc(db, "invites", token);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) throw new Error("Invite link is invalid or expired");
 
-    const inv = invSnap.data();
-    const spaceRef = doc(db, "spaces", inv.spaceId);
+    const invite = inviteSnap.data();
+    if (new Date(invite.expiresAt).getTime() < Date.now()) {
+      throw new Error("Invite link has expired");
+    }
+
+    const spaceRef = doc(db, "spaces", invite.spaceId);
     const spaceSnap = await getDoc(spaceRef);
     if (!spaceSnap.exists()) throw new Error("Space no longer exists");
 
     const data = spaceSnap.data();
-    const existing = (data.members || []).find(
-      (m: Member) => m.email.toLowerCase() === user.email.toLowerCase()
+    const normalizedEmail = normalizeEmail(user.email);
+    const existingIndex = (data.members || []).findIndex((member: Member) =>
+      memberMatchesUser(member, user.id, user.email) || normalizeEmail(member.email) === normalizedEmail,
     );
 
-    if (!existing) {
-      const newMember: Member = {
+    const members = [...(data.members || [])] as Member[];
+    if (existingIndex >= 0) {
+      members[existingIndex] = {
+        ...members[existingIndex],
+        name: fallbackName(user.name, normalizedEmail),
+        email: normalizedEmail,
+        avatar: user.avatar || members[existingIndex].avatar || null,
+        userUid: user.id,
+      };
+    } else {
+      members.push({
         id: generateId(),
-        name: user.name || user.email.split("@")[0] || "Member",
-        email: user.email.toLowerCase(),
+        name: fallbackName(user.name, normalizedEmail),
+        email: normalizedEmail,
         role: "member",
         avatar: user.avatar || null,
-      };
-      const updatedMembers = [...(data.members || []), newMember];
-      const updatedUids = [...(data.memberUids || []), user.id];
-
-      await updateDoc(spaceRef, {
-        members: updatedMembers,
-        memberUids: updatedUids,
+        userUid: user.id,
       });
     }
 
-    return { space_id: inv.spaceId };
-  },
+    await updateDoc(spaceRef, {
+      members,
+      memberUids: uniqueStrings([...(data.memberUids || []), user.id]),
+      memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
+      updatedAt: nowIso(),
+    });
 
-  // -------------------------------------------------------------
-  // INITIAL SEEDING FOR NEW USERS
-  // -------------------------------------------------------------
-  async seedInitialSpace(userId: string, userEmail: string): Promise<Space> {
-    if (!db) throw new Error("Database not connected");
-    const spaceId = generateId();
-    const ownerMember: Member = {
-      id: generateId(),
-      name: userEmail.split("@")[0] || "You",
-      email: userEmail || "demo@splitspace.local",
-      role: "owner",
-      avatar: null,
-    };
-    const member2: Member = {
-      id: generateId(),
-      name: "Yatin",
-      email: "yatin@example.com",
-      role: "member",
-      avatar: null,
-    };
-    const member3: Member = {
-      id: generateId(),
-      name: "Rohan",
-      email: "rohan@example.com",
-      role: "member",
-      avatar: null,
-    };
-    const member4: Member = {
-      id: generateId(),
-      name: "Neha",
-      email: "neha@example.com",
-      role: "member",
-      avatar: null,
-    };
-
-    const members = [ownerMember, member2, member3, member4];
-
-    const spaceData = {
-      id: spaceId,
-      title: "Goa Weekend",
-      emoji: "🌴",
-      period: "18–20 Aug 2026",
-      currency: "INR",
-      createdBy: userId,
-      memberUids: [userId],
-      members: members,
-      createdAt: nowIso(),
-    };
-
-    await setDoc(doc(db, "spaces", spaceId), spaceData);
-
-    // Add seed expenses
-    const exp1: Expense = {
-      id: generateId(),
-      title: "Villa booking",
-      amount: 8800,
-      currency: "INR",
-      original_amount: 8800,
-      original_currency: "INR",
-      exchange_rate: 1.0,
-      paid_by: ownerMember,
-      category: "accommodation",
-      note: "2 nights booking",
-      split_mode: "equal",
-      splits: members.map((m) => ({ user_id: m.id, amount: 2200 })),
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    };
-    await setDoc(doc(db, "spaces", spaceId, "expenses", exp1.id), exp1);
-
-    const exp2: Expense = {
-      id: generateId(),
-      title: "Dinner — Day 1",
-      amount: 2240,
-      currency: "INR",
-      original_amount: 2240,
-      original_currency: "INR",
-      exchange_rate: 1.0,
-      paid_by: member2,
-      category: "food",
-      note: "Beach shack dinner",
-      split_mode: "equal",
-      splits: members.map((m) => ({ user_id: m.id, amount: 560 })),
-      created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-    };
-    await setDoc(doc(db, "spaces", spaceId, "expenses", exp2.id), exp2);
-
-    return {
-      id: spaceId,
-      title: spaceData.title,
-      emoji: spaceData.emoji,
-      period: spaceData.period,
-      currency: spaceData.currency,
-      members: members,
-      expenses: [exp2, exp1],
-      created_at: spaceData.createdAt,
-    };
+    return { space_id: invite.spaceId };
   },
 };

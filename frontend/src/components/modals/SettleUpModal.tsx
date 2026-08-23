@@ -475,7 +475,6 @@ export function SettleUpModal({
 
           <input
             type="text"
-            placeholder="e.g. Google Pay, Cash, Venmo, Bank transfer"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             style={{

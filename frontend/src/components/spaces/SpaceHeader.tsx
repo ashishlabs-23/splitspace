@@ -36,27 +36,31 @@ export function SpaceHeader({
 
       <div className="top-actions">
         <button
-          className="btn ghost desktop-only"
+          className="btn ghost"
           onClick={onExport}
           disabled={!active}
           title="Export CSV / Print PDF"
+          aria-label="Export CSV or PDF summary"
         >
           <Download size={14} /> Export
         </button>
 
         <button
-          className="btn ghost desktop-only"
+          className="btn ghost"
           onClick={onSettleUp}
           disabled={!active}
           title="Record a direct payment"
+          aria-label="Record a direct payment"
         >
           <ArrowRightLeft size={14} /> Settle up
         </button>
 
         <button
-          className="btn ghost desktop-only"
+          className="btn ghost"
           onClick={onInvite}
           disabled={!active}
+          title="Invite members to this space"
+          aria-label="Invite members"
         >
           <Users size={14} /> Invite
         </button>
@@ -65,6 +69,7 @@ export function SpaceHeader({
           className="btn primary"
           onClick={onAddExpense}
           disabled={!active}
+          aria-label="Add new expense"
         >
           <Plus size={15} /> Add expense
         </button>

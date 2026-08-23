@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   description: "User-first group expenses, multi-currency splitting, exact settlement calculations, and ledger exports.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 

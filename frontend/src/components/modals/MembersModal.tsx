@@ -7,10 +7,12 @@ import { Avatar } from "@/components/ui/Avatar";
 
 export function MembersModal({
   space,
+  currentUser,
   onClose,
   onChanged,
 }: {
   space: Space;
+  currentUser?: Member | null;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -55,16 +57,26 @@ export function MembersModal({
         </div>
 
         <div className="member-modal-list">
-          {space.members.map((m) => (
-            <div className="member-modal-row" key={m.id}>
-              <Avatar m={m} />
-              <div className="member-info">
-                <strong>{m.name}</strong>
-                <small>{m.email}</small>
+          {space.members.map((m) => {
+            let displayName = m.name;
+            if (
+              currentUser?.email &&
+              m.email?.toLowerCase() === currentUser.email.toLowerCase() &&
+              currentUser.name
+            ) {
+              displayName = currentUser.name;
+            }
+            return (
+              <div className="member-modal-row" key={m.id}>
+                <Avatar m={{ ...m, name: displayName }} />
+                <div className="member-info">
+                  <strong>{displayName}</strong>
+                  <small>{m.email}</small>
+                </div>
+                <span className={`role-badge ${m.role}`}>{m.role}</span>
               </div>
-              <span className={`role-badge ${m.role}`}>{m.role}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="divider" />
@@ -75,7 +87,6 @@ export function MembersModal({
             <label>
               Name
               <input
-                placeholder="Priya"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -88,7 +99,6 @@ export function MembersModal({
               Email
               <input
                 type="email"
-                placeholder="priya@email.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);

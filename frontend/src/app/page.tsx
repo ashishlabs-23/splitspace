@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   api,
   Space,
@@ -37,6 +37,9 @@ import {
   Users,
   LogOut,
 } from "lucide-react";
+import { EmailVerificationScreen } from "@/components/auth/EmailVerificationScreen";
+import { UsernameSetupScreen } from "@/components/auth/UsernameSetupScreen";
+import { isFirebaseConfigured } from "@/lib/firebase";
 
 export default function Home() {
   const { user, loading: authLoading, setUser } = useAuth();
@@ -60,13 +63,29 @@ export default function Home() {
   }>({});
 
   const [joinToken, setJoinToken] = useState<string>("");
+  const joiningRef = React.useRef(false); // prevent double-join
   const [signOutSheetOpen, setSignOutSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"dashboard" | "landing">("dashboard");
+  const [spendLensCurrency, setSpendLensCurrency] = useState<string>("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const token = params.get("join");
+      let token = params.get("join");
+
+      if (!token) {
+        // Support /invite/TOKEN, /join/TOKEN paths
+        const parts = window.location.pathname.split("/").filter(Boolean);
+        if (parts.length >= 2 && (parts[0] === "invite" || parts[0] === "join")) {
+          token = parts[1];
+        }
+      }
+
+      if (!token && window.location.hash) {
+        const hashMatch = window.location.hash.match(/join=([^&]+)/);
+        if (hashMatch) token = hashMatch[1];
+      }
+
       if (token) setJoinToken(token);
     }
   }, []);
@@ -108,22 +127,29 @@ export default function Home() {
     }
   }, [activeId, user]);
 
-  // Handle joining via invite link
+  // Handle joining via invite link — only when user is already logged in (dashboard view)
+  // For not-logged-in users, the join happens in onLoggedIn callback of LandingPage
   useEffect(() => {
-    if (joinToken && user) {
-      api.join(joinToken)
-        .then((res) => {
-          toast.success("Joined space successfully!");
-          setActiveId(res.space_id);
-          setJoinToken("");
-          refresh();
-        })
-        .catch((err) => {
-          toast.error(err.message || "Failed to join space");
-          setJoinToken("");
-        });
-    }
-  }, [joinToken, user, refresh, toast]);
+    if (!joinToken || !user || viewMode === "landing") return;
+    if (joiningRef.current) return;
+    joiningRef.current = true;
+    api.join(joinToken)
+      .then(async (res) => {
+        toast.success("Joined space successfully!");
+        setJoinToken("");
+        window.history.replaceState({}, document.title, "/");
+        const sps = await api.spaces();
+        setSpaces(sps);
+        setActiveId(res.space_id);
+      })
+      .catch((err) => {
+        console.error("Failed to join space:", err);
+        toast.error(err.message || "Failed to join space");
+        setJoinToken("");
+        window.history.replaceState({}, document.title, "/");
+      })
+      .finally(() => { joiningRef.current = false; });
+  }, [joinToken, user, viewMode, toast]);
 
   // Offline detection
   useEffect(() => {
@@ -154,16 +180,27 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Initialize state if needed
-    if (!window.history.state) {
-      window.history.replaceState({ view: user ? "dashboard" : "landing" }, "");
+    const currentState = window.history.state;
+
+    // Seed the history stack: landing → dashboard
+    // This ensures pressing Back from dashboard always shows the landing page
+    if (!currentState?.view) {
+      // No history yet — build the stack: landing first, then dashboard on top
+      window.history.replaceState({ view: "landing" }, "");
+      window.history.pushState({ view: "dashboard" }, "");
+    } else if (currentState?.view === "dashboard") {
+      // Already on dashboard state but might not have landing behind it
+      // We can't insert behind, but we ensure the current state is correct
     }
 
     const handlePopState = (e: PopStateEvent) => {
-      if (e.state?.view) {
-        setViewMode(e.state.view);
+      const view = e.state?.view;
+      if (view === "landing" || view === "dashboard") {
+        setViewMode(view);
       } else {
-        setViewMode((curr) => (curr === "dashboard" ? "landing" : "dashboard"));
+        // No state — treat as going back to landing
+        setViewMode("landing");
+        window.history.replaceState({ view: "landing" }, "");
       }
     };
 
@@ -173,8 +210,15 @@ export default function Home() {
 
   const goToDashboard = useCallback(() => {
     setViewMode("dashboard");
-    if (typeof window !== "undefined" && window.history.state?.view !== "dashboard") {
-      window.history.pushState({ view: "dashboard" }, "");
+    if (typeof window !== "undefined") {
+      const curr = window.history.state?.view;
+      if (curr !== "dashboard") {
+        // Ensure landing is in the stack first so Back returns to it
+        if (curr !== "landing") {
+          window.history.replaceState({ view: "landing" }, "");
+        }
+        window.history.pushState({ view: "dashboard" }, "");
+      }
     }
   }, []);
 
@@ -209,12 +253,81 @@ export default function Home() {
       <LandingPage
         joinToken={joinToken}
         currentUser={user}
-        onLoggedIn={(u: Member) => {
+        onLoggedIn={async (u: Member) => {
           setUser(u);
+          // If there is a pending invite token, join immediately on login
+          if (joinToken && !joiningRef.current) {
+            joiningRef.current = true;
+            try {
+              // Import firestoreDb directly to pass user explicitly, bypassing getCurrentUser() timing
+              const { firestoreDb } = await import("@/lib/firestore-db");
+              const res = await firestoreDb.joinInvite(joinToken, u);
+              toast.success("Joined space successfully!");
+              setJoinToken("");
+              window.history.replaceState({}, document.title, "/");
+              goToDashboard();
+              const sps = await api.spaces();
+              setSpaces(sps);
+              setActiveId(res.space_id);
+            } catch (err: any) {
+              console.error("Failed to join space after login:", err);
+              toast.error(err.message || "Failed to join space");
+              setJoinToken("");
+              window.history.replaceState({}, document.title, "/");
+              goToDashboard();
+              refresh();
+            } finally {
+              joiningRef.current = false;
+            }
+          } else {
+            goToDashboard();
+            refresh();
+          }
+        }}
+        onGoToDashboard={user ? goToDashboard : undefined}
+      />
+    );
+  }
+
+  // Mandatory Email Verification Guard for password accounts
+  if (user && isFirebaseConfigured() && user.authProvider === "password" && !user.emailVerified) {
+    return (
+      <EmailVerificationScreen
+        user={user}
+        onVerified={(verifiedUser) => {
+          setUser(verifiedUser);
           goToDashboard();
           refresh();
         }}
-        onGoToDashboard={user ? goToDashboard : undefined}
+        onLogout={async () => {
+          await api.logout();
+          setUser(null);
+          goToLanding();
+        }}
+      />
+    );
+  }
+
+  // Mandatory Username Guard: Ensure every user has a valid username
+  const hasValidUsername = Boolean(
+    user?.name &&
+    user.name.trim().length >= 2 &&
+    user.name.trim().toLowerCase() !== "user"
+  );
+  if (user && isFirebaseConfigured() && !hasValidUsername) {
+    return (
+      <UsernameSetupScreen
+        user={user}
+        onComplete={(updatedUser) => {
+          setUser(updatedUser);
+          goToDashboard();
+          refresh();
+        }}
+        onLogout={async () => {
+          await api.logout();
+          setUser(null);
+          goToLanding();
+        }}
       />
     );
   }
@@ -258,6 +371,7 @@ export default function Home() {
           setModal("deleteSpace");
         }}
         onSignOut={() => setSignOutSheetOpen(true)}
+        onExport={() => setModal("export")}
       />
 
       {/* ── Mobile Top Bar ── */}
@@ -267,12 +381,28 @@ export default function Home() {
         </button>
         <div
           className="mobile-brand"
-          style={{ cursor: "pointer" }}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
           onClick={goToLanding}
           role="button"
           tabIndex={0}
         >
-          SplitSpace
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "#ffffff",
+              border: "1px solid rgba(200, 126, 10, 0.25)",
+              boxShadow: "0 2px 8px rgba(200, 126, 10, 0.12)",
+              display: "grid",
+              placeItems: "center",
+              overflow: "hidden",
+              padding: 2,
+            }}
+          >
+            <img src="/logo.png" alt="SplitSpace Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+          <span>SplitSpace</span>
         </div>
         <div style={{ width: 36 }} />
       </div>
@@ -330,20 +460,12 @@ export default function Home() {
                   </p>
                   <div className="hero-actions">
                     <button
-                      className="btn primary"
-                      onClick={() => {
-                        setEditingExpense(null);
-                        setModal("expense");
-                      }}
-                    >
-                      <Receipt size={15} /> Add expense
-                    </button>
-                    <button
                       type="button"
-                      className="text-btn"
+                      className="btn ghost"
                       onClick={() => setModal("members")}
+                      style={{ background: "rgba(255, 255, 255, 0.85)", border: "1px solid rgba(241, 107, 45, 0.25)", color: "#0d1b42", fontWeight: 600 }}
                     >
-                      See people <ArrowRight size={14} />
+                      <Users size={14} /> See people ({active.members.length}) <ArrowRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -372,12 +494,18 @@ export default function Home() {
               </section>
 
               {/* ── Stats Grid ── */}
-              <SpaceStats space={active} summary={summary} />
+              <SpaceStats
+                space={active}
+                summary={summary}
+                targetCurrency={spendLensCurrency || active.currency}
+                onCurrencyChange={setSpendLensCurrency}
+              />
 
               {/* ── Content Grid ── */}
               <div className="grid">
                 <ExpenseList
                   space={active}
+                  targetCurrency={spendLensCurrency || active.currency}
                   onAddExpense={() => {
                     setEditingExpense(null);
                     setModal("expense");
@@ -423,6 +551,7 @@ export default function Home() {
                       space={active}
                       summary={summary}
                       currentUser={user}
+                      targetCurrency={spendLensCurrency || active.currency}
                       onSettleUp={(payerId, recipientId, amount) => {
                         setSettlePrefill({ payerId, recipientId, amount });
                         setModal("settleUp");
@@ -443,6 +572,7 @@ export default function Home() {
 
                   <MemberList
                     space={active}
+                    currentUser={user}
                     onAddPerson={() => setModal("invite")}
                   />
                 </aside>
@@ -534,6 +664,7 @@ export default function Home() {
       {modal === "members" && active && (
         <MembersModal
           space={active}
+          currentUser={user}
           onClose={() => setModal(null)}
           onChanged={() => {
             toast.success("Members updated");
@@ -636,7 +767,6 @@ export default function Home() {
                   try {
                     await api.logout();
                   } catch {}
-                  localStorage.removeItem("splitspace_token");
                   location.reload();
                 }}
                 style={{

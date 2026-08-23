@@ -56,13 +56,18 @@ export function ExportModal({
         style={{
           maxWidth: 680,
           width: "100%",
+          margin: "0 auto",
+          maxHeight: "90vh",
+          overflowY: "auto",
           background: "#faf1eb",
-          border: "1px solid rgba(241, 107, 45, 0.18)",
-          borderRadius: 28,
-          padding: "32px",
-          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.35)",
+          backgroundImage: "linear-gradient(160deg, #ffffff 0%, #faf1eb 60%, #f5e5da 100%)",
+          border: "1.5px solid rgba(241, 107, 45, 0.22)",
+          borderRadius: 24,
+          padding: "clamp(16px, 4vw, 28px)",
+          boxShadow: "0 30px 80px rgba(13, 27, 66, 0.28)",
           color: "#1e2029",
           fontFamily: "'Space Grotesk', -apple-system, sans-serif",
+          boxSizing: "border-box",
         }}
       >
         {/* ── Modal Header ── */}
@@ -71,47 +76,52 @@ export function ExportModal({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingBottom: 22,
+            paddingBottom: 16,
             borderBottom: "1px solid rgba(13, 27, 66, 0.08)",
+            gap: 12,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             <div
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
                 background: "#e0562e",
                 color: "#ffffff",
                 display: "grid",
                 placeItems: "center",
-                boxShadow: "0 6px 18px rgba(224, 86, 46, 0.35)",
+                boxShadow: "0 4px 14px rgba(224, 86, 46, 0.30)",
                 flexShrink: 0,
               }}
             >
-              <FileText size={24} />
+              <FileText size={20} />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h2
                 style={{
-                  fontSize: 22,
+                  fontSize: "clamp(17px, 4vw, 21px)",
                   fontWeight: 700,
                   color: "#1e2029",
                   margin: 0,
                   letterSpacing: "-0.02em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
                 Share & Export Statement
               </h2>
               <p
                 style={{
-                  fontSize: 13,
+                  fontSize: "clamp(11.5px, 2.8vw, 13px)",
                   color: "#6b7280",
-                  margin: "4px 0 0",
+                  margin: "2px 0 0",
                   fontWeight: 400,
+                  lineHeight: 1.35,
                 }}
               >
-                Send official breakdown directly to members via Gmail or print executive PDF.
+                Official breakdown via Gmail, copyable text, or executive PDF.
               </p>
             </div>
           </div>
@@ -119,60 +129,61 @@ export function ExportModal({
             onClick={onClose}
             aria-label="Close dialog"
             style={{
-              background: "transparent",
+              background: "rgba(13, 27, 66, 0.06)",
               border: "none",
               color: "#6b7280",
               cursor: "pointer",
               padding: 6,
-              borderRadius: 8,
+              borderRadius: "50%",
               display: "grid",
               placeItems: "center",
-              transition: "color 0.15s, transform 0.15s",
+              flexShrink: 0,
+              transition: "all 0.15s",
             }}
-            className="hover:text-black hover:scale-110"
+            className="hover:text-black hover:bg-black/10 active:scale-95"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* ── Two Hero Action Cards (Side by Side) ── */}
+        {/* ── Two Hero Action Cards (Responsive Grid) ── */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-            marginTop: 22,
-            marginBottom: 22,
+            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+            gap: 12,
+            marginTop: 16,
+            marginBottom: 16,
           }}
         >
           {/* Card 1: Open in Gmail Web */}
           <div
             onClick={() => handleGmailWeb(null)}
             style={{
-              background: "rgba(255, 255, 255, 0.88)",
+              background: "rgba(255, 255, 255, 0.92)",
               border: "1.5px solid #e0562e",
-              borderRadius: 20,
-              padding: "22px",
+              borderRadius: 18,
+              padding: "16px 16px 14px",
               cursor: "pointer",
               display: "flex",
               flexDirection: "column",
               boxShadow: "0 4px 16px rgba(224, 86, 46, 0.08)",
               transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
-            className="hover:shadow-xl hover:-translate-y-1"
+            className="hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
           >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 16,
+                marginBottom: 10,
               }}
             >
               <div
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: 32,
+                  height: 32,
                   borderRadius: "50%",
                   background: "#fcedea",
                   color: "#e0562e",
@@ -180,15 +191,18 @@ export function ExportModal({
                   placeItems: "center",
                 }}
               >
-                <Mail size={16} />
+                <Mail size={15} />
               </div>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                   color: "#e0562e",
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
+                  background: "rgba(224, 86, 46, 0.08)",
+                  padding: "2px 7px",
+                  borderRadius: 6,
                 }}
               >
                 INSTANT WEB
@@ -197,10 +211,10 @@ export function ExportModal({
 
             <strong
               style={{
-                fontSize: 17,
+                fontSize: 15.5,
                 fontWeight: 700,
                 color: "#1e2029",
-                marginBottom: 6,
+                marginBottom: 4,
                 letterSpacing: "-0.01em",
               }}
             >
@@ -209,30 +223,30 @@ export function ExportModal({
 
             <p
               style={{
-                fontSize: 12.5,
+                fontSize: 12,
                 color: "#6b7280",
-                lineHeight: 1.5,
+                lineHeight: 1.45,
                 margin: 0,
                 flex: 1,
               }}
             >
-              Opens browser with pre-composed group ledger. Ready for instant sharing with members.
+              Pre-composed group ledger ready for instant sharing with members.
             </p>
 
             <div
               style={{
-                marginTop: 18,
-                paddingTop: 12,
+                marginTop: 14,
+                paddingTop: 10,
                 borderTop: "1px solid rgba(224, 86, 46, 0.15)",
-                fontSize: 13,
-                fontWeight: 600,
+                fontSize: 12.5,
+                fontWeight: 700,
                 color: "#e0562e",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
               }}
             >
-              <ArrowUpRight size={15} /> Launch Gmail Composer
+              <ArrowUpRight size={14} /> Launch Gmail
             </div>
           </div>
 
@@ -243,58 +257,61 @@ export function ExportModal({
               onClose();
             }}
             style={{
-              background: "rgba(255, 255, 255, 0.88)",
+              background: "rgba(255, 255, 255, 0.92)",
               border: "1.5px solid #14b8a6",
-              borderRadius: 20,
-              padding: "22px",
+              borderRadius: 18,
+              padding: "16px 16px 14px",
               cursor: "pointer",
               display: "flex",
               flexDirection: "column",
               boxShadow: "0 4px 16px rgba(20, 184, 166, 0.08)",
               transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
-            className="hover:shadow-xl hover:-translate-y-1"
+            className="hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
           >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 16,
+                marginBottom: 10,
               }}
             >
               <div
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
                   background: "#e6f7f5",
                   color: "#14b8a6",
                   display: "grid",
                   placeItems: "center",
                 }}
               >
-                <Printer size={18} />
+                <Printer size={15} />
               </div>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                   color: "#14b8a6",
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
+                  background: "rgba(20, 184, 166, 0.08)",
+                  padding: "2px 7px",
+                  borderRadius: 6,
                 }}
               >
-                EXECUTIVE
+                EXECUTIVE PDF
               </span>
             </div>
 
             <strong
               style={{
-                fontSize: 17,
+                fontSize: 15.5,
                 fontWeight: 700,
                 color: "#1e2029",
-                marginBottom: 6,
+                marginBottom: 4,
                 letterSpacing: "-0.01em",
               }}
             >
@@ -303,30 +320,30 @@ export function ExportModal({
 
             <p
               style={{
-                fontSize: 12.5,
+                fontSize: 12,
                 color: "#6b7280",
-                lineHeight: 1.5,
+                lineHeight: 1.45,
                 margin: 0,
                 flex: 1,
               }}
             >
-              Formal audited statement with verified reference ID, signature & printable layout.
+              Audited statement with reference ID, member summary & printable layout.
             </p>
 
             <div
               style={{
-                marginTop: 18,
-                paddingTop: 12,
+                marginTop: 14,
+                paddingTop: 10,
                 borderTop: "1px solid rgba(20, 184, 166, 0.15)",
-                fontSize: 13,
-                fontWeight: 600,
+                fontSize: 12.5,
+                fontWeight: 700,
                 color: "#14b8a6",
                 display: "flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 4,
               }}
             >
-              <Printer size={15} /> Print / Save as PDF
+              <Printer size={14} /> Print / Save PDF
             </div>
           </div>
         </div>
@@ -334,11 +351,11 @@ export function ExportModal({
         {/* ── Member Dispatch Container ── */}
         <div
           style={{
-            background: "rgba(245, 235, 227, 0.65)",
+            background: "rgba(245, 235, 227, 0.75)",
             border: "1px solid rgba(13, 27, 66, 0.08)",
-            borderRadius: 20,
-            padding: "20px",
-            marginBottom: 24,
+            borderRadius: 18,
+            padding: "clamp(12px, 3vw, 18px)",
+            marginBottom: 18,
           }}
         >
           <div
@@ -346,19 +363,21 @@ export function ExportModal({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 12,
+              marginBottom: 10,
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
             <span
               style={{
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: 700,
                 color: "#6b7280",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
               }}
             >
-              DIRECT DISPATCH TO SPECIFIC MEMBER
+              DISPATCH TO SPECIFIC MEMBER
             </span>
 
             <button
@@ -367,46 +386,47 @@ export function ExportModal({
               style={{
                 background: "#e8dbce",
                 border: "1px solid #d8cbbe",
-                borderRadius: 12,
-                padding: "8px 18px",
-                fontSize: 13,
-                fontWeight: 600,
+                borderRadius: 10,
+                padding: "6px 14px",
+                fontSize: 12,
+                fontWeight: 700,
                 color: "#2d2f39",
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 5,
                 cursor: "pointer",
                 transition: "all 0.15s",
               }}
-              className="hover:bg-[#dfd0c1]"
+              className="hover:bg-[#dfd0c1] active:scale-95"
             >
-              {copied ? <Check size={14} className="text-emerald-700" /> : <Copy size={14} />}
-              <span>{copied ? "Copied!" : "Copy Text"}</span>
+              {copied ? <Check size={13} className="text-emerald-700" /> : <Copy size={13} />}
+              <span>{copied ? "Copied!" : "Copy Full Text"}</span>
             </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 220, overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto", paddingRight: 2 }}>
             {space.members.map((m) => (
               <div
                 key={m.id}
                 style={{
                   background: "#ffffff",
                   border: "1px solid #e5e7eb",
-                  borderRadius: 18,
-                  padding: "14px 18px",
+                  borderRadius: 14,
+                  padding: "10px 12px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                  gap: 10,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-                  <Avatar m={m} size="md" />
-                  <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                  <Avatar m={m} size="sm" />
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <strong
                       style={{
                         display: "block",
-                        fontSize: 15,
+                        fontSize: 13.5,
                         fontWeight: 700,
                         color: "#1e2029",
                         overflow: "hidden",
@@ -419,9 +439,8 @@ export function ExportModal({
                     <span
                       style={{
                         display: "block",
-                        fontSize: 13,
+                        fontSize: 11,
                         color: "#6b7280",
-                        marginTop: 2,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -432,47 +451,49 @@ export function ExportModal({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={() => handleGmailWeb(m)}
                     style={{
-                      border: "1.5px solid #e0562e",
+                      border: "1px solid #e0562e",
                       background: "#faece6",
                       color: "#e0562e",
-                      borderRadius: 12,
-                      padding: "8px 18px",
-                      fontSize: 13,
-                      fontWeight: 600,
+                      borderRadius: 9,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
+                      gap: 4,
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }}
-                    className="hover:bg-[#e0562e] hover:text-white"
+                    className="hover:bg-[#e0562e] hover:text-white active:scale-95"
+                    title={`Email ${m.name} via Gmail`}
                   >
-                    <Mail size={13} /> Gmail
+                    <Mail size={12} /> Gmail
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleNativeMail(m)}
                     style={{
-                      border: "1.5px solid #94a3b8",
-                      background: "#edf2f7",
+                      border: "1px solid #cbd5e1",
+                      background: "#f1f5f9",
                       color: "#334155",
-                      borderRadius: 12,
-                      padding: "8px 18px",
-                      fontSize: 13,
-                      fontWeight: 600,
+                      borderRadius: 9,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
+                      gap: 4,
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }}
-                    className="hover:bg-[#334155] hover:text-white hover:border-[#334155]"
+                    className="hover:bg-[#334155] hover:text-white active:scale-95"
+                    title={`Email ${m.name} via Default Mail App`}
                   >
                     App
                   </button>
@@ -488,12 +509,14 @@ export function ExportModal({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingTop: 18,
+            paddingTop: 14,
             borderTop: "1px solid rgba(13, 27, 66, 0.08)",
+            gap: 12,
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>
-            Engineered & Designed by <strong>{creatorName}</strong>
+          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+            Space: <strong style={{ color: "#1e2029" }}>{space.title}</strong> · {space.members.length} members
           </div>
 
           <button
@@ -502,10 +525,10 @@ export function ExportModal({
             style={{
               background: "#e8dbce",
               border: "1px solid #d8cbbe",
-              borderRadius: 14,
-              padding: "12px 32px",
-              fontSize: 15,
-              fontWeight: 600,
+              borderRadius: 12,
+              padding: "9px 26px",
+              fontSize: 14,
+              fontWeight: 700,
               color: "#2d2f39",
               cursor: "pointer",
               transition: "all 0.15s",
