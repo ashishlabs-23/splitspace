@@ -1,12 +1,19 @@
 # SplitSpace — Modern Group Expense & Debt Settlement Engine
 
-SplitSpace is a high-performance, real-time group expense management and debt simplification platform. Built with Next.js 16, React 19, Tailwind CSS, Framer Motion, and Google Firebase (Authentication & Cloud Firestore).
+[![Live Demo](https://img.shields.io/badge/Live_Demo-splitspace--9d28f.web.app-00C7B7?style=for-the-badge&logo=firebase&logoColor=white)](https://splitspace-9d28f.web.app)
+[![Next.js](https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Firebase](https://img.shields.io/badge/Firebase_Auth_%26_Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+
+SplitSpace is a high-performance, real-time group expense management and debt simplification platform. Built with **Next.js 16 (Turbopack, App Router)**, **React 19**, **Tailwind CSS**, **Framer Motion**, and **Google Firebase** (Authentication & Cloud Firestore).
 
 🌐 **Live Application**: [https://splitspace-9d28f.web.app](https://splitspace-9d28f.web.app)
 
 ---
 
-## Key Capabilities & Features
+## ✨ Key Capabilities & Features
 
 - **⚡ Instant Group Spaces**: Create distinct shared spaces for trips, households, projects, or events.
 - **🔗 Shareable Invite Engine**: 1-click invite links with atomic Firestore membership synchronization.
@@ -19,20 +26,20 @@ SplitSpace is a high-performance, real-time group expense management and debt si
 
 ---
 
-## Technical Stack & Architecture
+## 🛠️ Technical Stack & Architecture
 
 | Layer | Technology |
 |---|---|
 | **Framework** | [Next.js 16 (Turbopack, App Router)](https://nextjs.org/) |
-| **UI Library** | [React 19](https://react.dev/), [SmoothUI](https://smoothui.dev/), [Tailwind CSS](https://tailwindcss.com/) |
-| **Motion & Micro-interactions** | [Framer Motion (motion/react)](https://motion.dev/) |
+| **UI Library** | [React 19](https://react.dev/), [SmoothUI](https://smoothui.dev/), [Tailwind CSS v4](https://tailwindcss.com/) |
+| **Motion & Micro-interactions** | [Framer Motion (`motion/react`)](https://motion.dev/) |
 | **Authentication** | [Firebase Auth](https://firebase.google.com/products/auth) (Google 1-Click + Email/Password + Email Verification) |
 | **Database** | [Google Cloud Firestore](https://firebase.google.com/products/firestore) (Atomic transactions, zero-cold-start) |
 | **Hosting & CDN** | [Firebase Hosting](https://firebase.google.com/products/hosting) |
 
 ---
 
-## Getting Started (Local Development)
+## 🚀 Getting Started (Local Development)
 
 ### 1. Clone & Install Dependencies
 
@@ -65,7 +72,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Deploying to Production
+## 🚢 Deploying to Production
 
 ### Deploy Frontend (Firebase Hosting)
 
@@ -90,7 +97,7 @@ node scripts/verify-rules.js
 
 ---
 
-## Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Key | Action |
 |---|---|
@@ -103,6 +110,7 @@ node scripts/verify-rules.js
 
 ---
 
-## License
+## 📄 License
 
 MIT © [Ashish Labs](https://github.com/ashishlabs-23)
+
