@@ -32,36 +32,39 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
     }
 
+    function validSpaceSizes() {
+      return request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() <= 200
+        && request.resource.data.memberEmails is list
+        && request.resource.data.memberEmails.size() <= 200
+        && request.resource.data.members is list
+        && request.resource.data.members.size() <= 200;
+    }
+
     function ownerManagedSpaceUpdate() {
       return isSpaceOwner(spaceId)
         && baseSpaceFieldsUnchanged()
-        && request.resource.data.memberUids is list
-        && request.resource.data.memberEmails is list
-        && request.resource.data.members is list;
+        && validSpaceSizes();
     }
 
     function selfJoinSpaceUpdate() {
-      // Any signed-in user can join a space if:
-      // - Core immutable fields are unchanged (id, createdBy, createdAt)
-      // - They are adding themselves to memberUids (not removing anyone)
-      // - The result includes their own UID
       return isSignedIn()
         && baseSpaceFieldsUnchanged()
-        && request.resource.data.memberUids is list
+        && validSpaceSizes()
         && request.resource.data.memberUids.hasAll(resource.data.memberUids)
-        && request.resource.data.memberUids.hasAny([request.auth.uid])
-        && request.resource.data.memberEmails is list
-        && request.resource.data.members is list;
+        && (request.auth.uid in request.resource.data.memberUids);
     }
 
     function selfLeaveSpaceUpdate() {
       return isSpaceMember(spaceId)
         && !isSpaceOwner(spaceId)
         && baseSpaceFieldsUnchanged()
-        && request.resource.data.memberUids is list
+        && validSpaceSizes()
         && !(request.auth.uid in request.resource.data.memberUids)
-        && resource.data.memberUids.hasAll(request.resource.data.memberUids)
-        && request.resource.data.members is list;
+        && resource.data.memberUids.hasAll(request.resource.data.memberUids);
     }
 
     function resourceHasCreator() {
@@ -89,17 +92,22 @@ service cloud.firestore {
         && request.resource.data.id == expenseId
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
         && request.resource.data.amount is number
         && request.resource.data.amount > 0
+        && request.resource.data.amount <= 1000000000
         && request.resource.data.currency is string
+        && request.resource.data.currency.size() <= 10
         && request.resource.data.category is string
+        && request.resource.data.category.size() <= 50
         && request.resource.data.paid_by is map
         && request.resource.data.splits is list
+        && request.resource.data.splits.size() <= 200
         && request.resource.data.created_at is string
         && request.resource.data.updated_at is string
         && request.resource.data.created_by_uid is string
         && request.resource.data.created_by_uid == request.auth.uid
-        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || request.resource.data.note is string);
+        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
     }
 
     function validSettlementPayload(settlementId) {
@@ -121,12 +129,14 @@ service cloud.firestore {
         && request.resource.data.to_member is map
         && request.resource.data.amount is number
         && request.resource.data.amount > 0
+        && request.resource.data.amount <= 1000000000
         && request.resource.data.currency is string
+        && request.resource.data.currency.size() <= 10
         && request.resource.data.created_at is string
         && request.resource.data.updated_at is string
         && request.resource.data.created_by_uid is string
         && request.resource.data.created_by_uid == request.auth.uid
-        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || request.resource.data.note is string);
+        && (!request.resource.data.keys().hasAny(['note']) || request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
     }
 
     match /users/{userId} {
@@ -144,14 +154,12 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.memberUids is list
+        && validSpaceSizes()
         && request.resource.data.memberUids.size() == 1
         && request.resource.data.memberUids[0] == request.auth.uid
-        && request.resource.data.memberEmails is list
         && request.resource.data.memberEmails.size() == 1
         && authEmail() != ""
         && request.resource.data.memberEmails[0] == authEmail()
-        && request.resource.data.members is list
         && request.resource.data.members.size() == 1;
       allow update: if ownerManagedSpaceUpdate() || selfJoinSpaceUpdate() || selfLeaveSpaceUpdate();
       allow delete: if isSignedIn() && (
@@ -185,6 +193,7 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.spaceId is string
+        && request.resource.data.spaceId.size() <= 64
         && isSpaceMember(request.resource.data.spaceId);
       allow update, delete: if isSignedIn()
         && (resource.data.createdByUid == request.auth.uid || isSpaceOwner(resource.data.spaceId));

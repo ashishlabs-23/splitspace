@@ -320,4 +320,9 @@ export const api = {
     if (!user) throw new Error("Authentication required to join space");
     return firestoreDb.joinInvite(tokenValue, user);
   },
+
+  revokeInvite: async (tokenValue: string): Promise<{ ok: boolean }> => {
+    requireFirebaseConfigured();
+    return firestoreDb.revokeInvite(tokenValue);
+  },
 };

@@ -712,4 +712,10 @@ export const firestoreDb = {
 
     return { space_id: invite.spaceId };
   },
+
+  async revokeInvite(token: string): Promise<{ ok: boolean }> {
+    if (!db) throw new Error("Database not connected");
+    await deleteDoc(doc(db, "invites", token));
+    return { ok: true };
+  },
 };
