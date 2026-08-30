@@ -14,7 +14,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode } from "./api";
+import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction } from "./api";
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -240,16 +240,23 @@ export const firestoreDb = {
 
   async deleteSpace(spaceId: string): Promise<{ ok: boolean }> {
     if (!db) throw new Error("Database not connected");
-    // Delete subcollections batch
-    const batch = writeBatch(db);
+    // Fetch all subcollection documents
     const expSnap = await getDocs(collection(db, "spaces", spaceId, "expenses"));
-    expSnap.docs.forEach((d) => batch.delete(d.ref));
-
     const setSnap = await getDocs(collection(db, "spaces", spaceId, "settlements"));
-    setSnap.docs.forEach((d) => batch.delete(d.ref));
 
-    batch.delete(doc(db, "spaces", spaceId));
-    await batch.commit();
+    const allRefs = [
+      ...expSnap.docs.map((d) => d.ref),
+      ...setSnap.docs.map((d) => d.ref),
+      doc(db, "spaces", spaceId),
+    ];
+
+    // Chunk into batches of 400 (Firestore limit is 500 ops per batch)
+    for (let i = 0; i < allRefs.length; i += 400) {
+      const batch = writeBatch(db);
+      const chunk = allRefs.slice(i, i + 400);
+      chunk.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
 
     return { ok: true };
   },
@@ -482,7 +489,7 @@ export const firestoreDb = {
   },
 
   // -------------------------------------------------------------
-  // SUMMARY & DEBT MINIMIZATION ALGORITHM
+  // SUMMARY & DEBT MINIMIZATION ALGORITHM (EXACT INTEGER CENTS)
   // -------------------------------------------------------------
   async getSummary(spaceId: string, currentUserId?: string, currentUserEmail?: string): Promise<Summary> {
     const space = await this.getSpace(spaceId);
@@ -490,100 +497,117 @@ export const firestoreDb = {
     const members = space.members;
     const expenses = space.expenses;
 
-    let totalSpent = 0;
-    const memberTotals: Record<string, any> = {};
+    let totalSpentCents = 0;
+    const memberTotals: Record<string, {
+      member: Member;
+      total_paid_cents: number;
+      total_owed_cents: number;
+    }> = {};
 
     members.forEach((m) => {
       memberTotals[m.id] = {
         member: m,
-        total_paid: 0,
-        total_owed: 0,
-        net_balance: 0,
+        total_paid_cents: 0,
+        total_owed_cents: 0,
       };
     });
 
     expenses.forEach((e) => {
-      totalSpent += e.amount;
+      const expenseCents = Math.round(Number(e.amount) * 100);
+      totalSpentCents += expenseCents;
+
       if (memberTotals[e.paid_by.id]) {
-        memberTotals[e.paid_by.id].total_paid += e.amount;
+        memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
       }
+
       if (e.split_mode === "equal" || !e.splits || e.splits.length === 0) {
-        const perPerson = Math.round((e.amount / Math.max(members.length, 1)) * 100) / 100;
-        members.forEach((m) => {
+        const count = Math.max(members.length, 1);
+        const baseCents = Math.floor(expenseCents / count);
+        const remainderCents = expenseCents % count;
+
+        members.forEach((m, idx) => {
           if (memberTotals[m.id]) {
-            memberTotals[m.id].total_owed += perPerson;
+            // Distribute fractional remainder cents to the first N members so sum exactly matches
+            const shareCents = baseCents + (idx < remainderCents ? 1 : 0);
+            memberTotals[m.id].total_owed_cents += shareCents;
           }
         });
       } else {
         e.splits.forEach((sp) => {
           if (memberTotals[sp.user_id]) {
-            memberTotals[sp.user_id].total_owed += sp.amount;
+            memberTotals[sp.user_id].total_owed_cents += Math.round(Number(sp.amount) * 100);
           }
         });
       }
     });
 
     settlements.forEach((s) => {
+      const settleCents = Math.round(Number(s.amount) * 100);
       if (memberTotals[s.from_member.id]) {
-        memberTotals[s.from_member.id].total_paid += s.amount;
+        memberTotals[s.from_member.id].total_paid_cents += settleCents;
       }
       if (memberTotals[s.to_member.id]) {
-        memberTotals[s.to_member.id].total_owed += s.amount;
+        memberTotals[s.to_member.id].total_owed_cents += settleCents;
       }
     });
 
-    const memberBalances = Object.values(memberTotals).map((mt: any) => {
-      mt.net_balance = Math.round((mt.total_paid - mt.total_owed) * 100) / 100;
-      mt.total_paid = Math.round(mt.total_paid * 100) / 100;
-      mt.total_owed = Math.round(mt.total_owed * 100) / 100;
-      return mt;
+    const memberBalances: MemberBalance[] = Object.values(memberTotals).map((mt) => {
+      const netCents = mt.total_paid_cents - mt.total_owed_cents;
+      return {
+        member: mt.member,
+        total_paid: mt.total_paid_cents / 100,
+        total_owed: mt.total_owed_cents / 100,
+        net_balance: netCents / 100,
+        _netCents: netCents,
+      } as MemberBalance & { _netCents: number };
     });
 
-    // Debt Simplification algorithm
-    const debtors: any[] = [];
-    const creditors: any[] = [];
+    // Exact integer debt-simplification greedy algorithm
+    const debtors: { member: Member; balanceCents: number }[] = [];
+    const creditors: { member: Member; balanceCents: number }[] = [];
+
     memberBalances.forEach((mb: any) => {
-      if (mb.net_balance < -0.01) {
-        debtors.push({ member: mb.member, balance: -mb.net_balance });
-      } else if (mb.net_balance > 0.01) {
-        creditors.push({ member: mb.member, balance: mb.net_balance });
+      if (mb._netCents < 0) {
+        debtors.push({ member: mb.member, balanceCents: -mb._netCents });
+      } else if (mb._netCents > 0) {
+        creditors.push({ member: mb.member, balanceCents: mb._netCents });
       }
     });
 
-    const settlementInstructions: any[] = [];
+    const settlementInstructions: SettlementInstruction[] = [];
     let dIdx = 0;
     let cIdx = 0;
 
     while (dIdx < debtors.length && cIdx < creditors.length) {
       const debtor = debtors[dIdx];
       const creditor = creditors[cIdx];
-      const settleAmount = Math.min(debtor.balance, creditor.balance);
+      const settleCents = Math.min(debtor.balanceCents, creditor.balanceCents);
 
-      if (settleAmount > 0.01) {
+      if (settleCents > 0) {
         settlementInstructions.push({
           from_member: debtor.member,
           to_member: creditor.member,
-          amount: Math.round(settleAmount * 100) / 100,
+          amount: settleCents / 100,
         });
       }
 
-      debtor.balance -= settleAmount;
-      creditor.balance -= settleAmount;
-      if (debtor.balance <= 0.01) dIdx++;
-      if (creditor.balance <= 0.01) cIdx++;
+      debtor.balanceCents -= settleCents;
+      creditor.balanceCents -= settleCents;
+      if (debtor.balanceCents <= 0) dIdx++;
+      if (creditor.balanceCents <= 0) cIdx++;
     }
 
     const currentMember = members.find(
       (m) => memberMatchesUser(m, currentUserId, currentUserEmail),
     );
     const callerBalance = currentMember && memberTotals[currentMember.id]
-      ? memberTotals[currentMember.id].net_balance
+      ? (memberTotals[currentMember.id].total_paid_cents - memberTotals[currentMember.id].total_owed_cents) / 100
       : memberBalances[0]
       ? memberBalances[0].net_balance
       : 0;
 
     return {
-      total_spent: Math.round(totalSpent * 100) / 100,
+      total_spent: totalSpentCents / 100,
       your_balance: callerBalance,
       people_count: members.length,
       expense_count: expenses.length,

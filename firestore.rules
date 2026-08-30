@@ -130,13 +130,17 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow create, update: if isSignedIn() && request.auth.uid == userId;
       allow delete: if false;
     }
 
     match /spaces/{spaceId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (
+        request.auth.uid in resource.data.memberUids ||
+        resource.data.createdBy == request.auth.uid ||
+        (resource.data.keys().hasAny(['ownerUid']) && resource.data.ownerUid == request.auth.uid)
+      );
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
