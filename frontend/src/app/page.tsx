@@ -11,6 +11,119 @@ import { useAuth } from "@/lib/useAuth";
 import { useShortcuts } from "@/lib/useShortcuts";
 import { formatMoney } from "@/lib/currencies";
 import { LandingPage } from "@/components/landing/LandingPage";
+import { AuthScreen } from "@/components/auth/AuthScreen";
+
+const DEMO_SPACE: Space = {
+  id: "demo-space-goa",
+  title: "Goa Roadtrip 🌴",
+  emoji: "🌴",
+  period: "Nov 15 - Nov 20",
+  currency: "INR",
+  members: [
+    { id: "guest-user", name: "You (Guest)", email: "", role: "owner", avatar: null },
+    { id: "m-rahul", name: "Rahul", email: "", role: "member", avatar: null },
+    { id: "m-priya", name: "Priya", email: "", role: "member", avatar: null },
+    { id: "m-alex", name: "Alex", email: "", role: "member", avatar: null },
+  ],
+  expenses: [
+    {
+      id: "exp-1",
+      title: "Beach Villa Stay",
+      amount: 12000,
+      currency: "INR",
+      original_amount: 12000,
+      original_currency: "INR",
+      exchange_rate: 1.0,
+      paid_by: { id: "guest-user", name: "You (Guest)", email: "", role: "owner" },
+      category: "accommodation",
+      note: "3 nights booking",
+      split_mode: "equal",
+      splits: [
+        { user_id: "guest-user", amount: 3000 },
+        { user_id: "m-rahul", amount: 3000 },
+        { user_id: "m-priya", amount: 3000 },
+        { user_id: "m-alex", amount: 3000 },
+      ],
+      created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+      created_by_uid: "guest-user",
+    },
+    {
+      id: "exp-2",
+      title: "Seafood Shack Dinner",
+      amount: 4000,
+      currency: "INR",
+      original_amount: 4000,
+      original_currency: "INR",
+      exchange_rate: 1.0,
+      paid_by: { id: "m-rahul", name: "Rahul", email: "", role: "member" },
+      category: "food",
+      note: "Dinner & drinks",
+      split_mode: "equal",
+      splits: [
+        { user_id: "guest-user", amount: 1000 },
+        { user_id: "m-rahul", amount: 1000 },
+        { user_id: "m-priya", amount: 1000 },
+        { user_id: "m-alex", amount: 1000 },
+      ],
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      updated_at: new Date(Date.now() - 86400000).toISOString(),
+      created_by_uid: "m-rahul",
+    },
+  ],
+  created_at: new Date().toISOString(),
+};
+
+const DEMO_SUMMARY: Summary = {
+  total_spent: 16000,
+  your_balance: 8000,
+  people_count: 4,
+  expense_count: 2,
+  settlements: [
+    {
+      from_member: { id: "m-rahul", name: "Rahul", email: "", role: "member", avatar: null },
+      to_member: { id: "guest-user", name: "You (Guest)", email: "", role: "owner", avatar: null },
+      amount: 2000,
+    },
+    {
+      from_member: { id: "m-priya", name: "Priya", email: "", role: "member", avatar: null },
+      to_member: { id: "guest-user", name: "You (Guest)", email: "", role: "owner", avatar: null },
+      amount: 3000,
+    },
+    {
+      from_member: { id: "m-alex", name: "Alex", email: "", role: "member", avatar: null },
+      to_member: { id: "guest-user", name: "You (Guest)", email: "", role: "owner", avatar: null },
+      amount: 3000,
+    },
+  ],
+  recorded_settlements: [],
+  member_balances: [
+    {
+      member: { id: "guest-user", name: "You (Guest)", email: "", role: "owner", avatar: null },
+      total_paid: 12000,
+      total_owed: 4000,
+      net_balance: 8000,
+    },
+    {
+      member: { id: "m-rahul", name: "Rahul", email: "", role: "member", avatar: null },
+      total_paid: 4000,
+      total_owed: 4000,
+      net_balance: 0,
+    },
+    {
+      member: { id: "m-priya", name: "Priya", email: "", role: "member", avatar: null },
+      total_paid: 0,
+      total_owed: 4000,
+      net_balance: -4000,
+    },
+    {
+      member: { id: "m-alex", name: "Alex", email: "", role: "member", avatar: null },
+      total_paid: 0,
+      total_owed: 4000,
+      net_balance: -4000,
+    },
+  ],
+};
 import { SpaceHeader } from "@/components/spaces/SpaceHeader";
 import { SpaceSidebar } from "@/components/spaces/SpaceSidebar";
 import { ExpenseList } from "@/components/spaces/ExpenseList";
@@ -67,11 +180,14 @@ export default function Home() {
   const [signOutSheetOpen, setSignOutSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"dashboard" | "landing">("dashboard");
   const [spendLensCurrency, setSpendLensCurrency] = useState<string>("");
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       let token = params.get("join");
+      const spaceParam = params.get("space");
+      if (spaceParam) setActiveId(spaceParam);
 
       if (!token) {
         // Support /invite/TOKEN, /join/TOKEN paths
@@ -89,6 +205,33 @@ export default function Home() {
       if (token) setJoinToken(token);
     }
   }, []);
+
+  // Update URL search query when active space changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeId && !joinToken && !isDemo) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("space") !== activeId) {
+        url.searchParams.set("space", activeId);
+        window.history.replaceState({ space: activeId }, "", url.toString());
+      }
+    }
+  }, [activeId, joinToken, isDemo]);
+
+  // Real-time active space sync with Firestore onSnapshot
+  useEffect(() => {
+    if (!activeId || isDemo || !user) return;
+
+    const unsubscribe = api.subscribeToSpace(activeId, ({ space: updatedSpace }) => {
+      setSpaces((prev) =>
+        prev.map((s) => (s.id === updatedSpace.id ? updatedSpace : s)),
+      );
+      api.summary(activeId).then(setSummary).catch(console.warn);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeId, isDemo, user]);
 
   const active = spaces.find((s) => s.id === activeId);
 
@@ -247,8 +390,58 @@ export default function Home() {
     );
   }
 
-  // Not signed in or viewing landing page
-  if (!authLoading && (!user || viewMode === "landing")) {
+  // Not signed in and not viewing landing page -> show AuthScreen directly!
+  if (!authLoading && !user && !isDemo && viewMode !== "landing") {
+    return (
+      <AuthScreen
+        joinToken={joinToken}
+        onLoggedIn={async (u: Member) => {
+          setUser(u);
+          // If there is a pending invite token, join immediately on login
+          if (joinToken && !joiningRef.current) {
+            joiningRef.current = true;
+            try {
+              const { firestoreDb } = await import("@/lib/firestore-db");
+              const res = await firestoreDb.joinInvite(joinToken, u);
+              toast.success("Joined space successfully!");
+              setJoinToken("");
+              window.history.replaceState({}, document.title, "/");
+              goToDashboard();
+              const sps = await api.spaces();
+              setSpaces(sps);
+              setActiveId(res.space_id);
+            } catch (err: any) {
+              console.error("Failed to join space after login:", err);
+              toast.error(err.message || "Failed to join space");
+              setJoinToken("");
+              window.history.replaceState({}, document.title, "/");
+              goToDashboard();
+              refresh();
+            } finally {
+              joiningRef.current = false;
+            }
+          } else {
+            goToDashboard();
+            refresh();
+          }
+        }}
+        onTryDemo={() => {
+          setIsDemo(true);
+          setSpaces([DEMO_SPACE]);
+          setActiveId(DEMO_SPACE.id);
+          setSummary(DEMO_SUMMARY);
+          setViewMode("dashboard");
+          setLoading(false);
+        }}
+        onViewLanding={() => {
+          setViewMode("landing");
+        }}
+      />
+    );
+  }
+
+  // Explicitly viewing promotional landing page
+  if (!authLoading && viewMode === "landing") {
     return (
       <LandingPage
         joinToken={joinToken}
@@ -284,7 +477,7 @@ export default function Home() {
             refresh();
           }
         }}
-        onGoToDashboard={user ? goToDashboard : undefined}
+        onGoToDashboard={goToDashboard}
       />
     );
   }
@@ -334,6 +527,50 @@ export default function Home() {
 
   return (
     <div className="app">
+      {isDemo && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 90,
+            background: "linear-gradient(90deg, #e0562e, #f16b2d)",
+            color: "#ffffff",
+            padding: "8px 16px",
+            fontSize: "13px",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 2px 10px rgba(224, 86, 46, 0.25)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={16} />
+            <span>You're in Demo Mode. Explore expenses, debt simplification, and currency conversion!</span>
+          </div>
+          <button
+            onClick={() => {
+              setIsDemo(false);
+              setViewMode("dashboard");
+            }}
+            style={{
+              background: "#ffffff",
+              color: "#e0562e",
+              border: "none",
+              borderRadius: "8px",
+              padding: "5px 12px",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            Sign In / Register
+          </button>
+        </div>
+      )}
       {isOffline && (
         <div
           style={{

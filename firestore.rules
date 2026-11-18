@@ -27,9 +27,9 @@ service cloud.firestore {
     }
 
     function baseSpaceFieldsUnchanged() {
-      return request.resource.data.id == resource.data.id
+      return (!resource.data.keys().hasAny(['id']) || request.resource.data.id == resource.data.id)
         && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt);
     }
 
     function validSpaceSizes() {
@@ -146,11 +146,7 @@ service cloud.firestore {
     }
 
     match /spaces/{spaceId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid in resource.data.memberUids ||
-        resource.data.createdBy == request.auth.uid ||
-        (resource.data.keys().hasAny(['ownerUid']) && resource.data.ownerUid == request.auth.uid)
-      );
+      allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
@@ -189,7 +185,7 @@ service cloud.firestore {
     }
 
     match /invites/{token} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.spaceId is string

@@ -215,9 +215,16 @@ export const api = {
     return firestoreDb.leaveSpace(spaceId, user);
   },
 
-  addMember: async (spaceId: string, body: { name: string; email: string }): Promise<Member> => {
+  addMember: async (spaceId: string, body: { name: string; email?: string }): Promise<Member> => {
     requireFirebaseConfigured();
     return firestoreDb.addMember(spaceId, body);
+  },
+
+  subscribeToSpace: (
+    spaceId: string,
+    onData: (data: { space: Space; settlements: SettlementRecord[] }) => void,
+  ): (() => void) => {
+    return firestoreDb.subscribeToSpace(spaceId, onData);
   },
 
   summary: async (spaceId: string): Promise<Summary> => {

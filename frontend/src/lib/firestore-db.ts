@@ -12,6 +12,7 @@ import {
   writeBatch,
   runTransaction,
   serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction } from "./api";
@@ -27,12 +28,12 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+function normalizeEmail(email?: string | null): string {
+  return email ? email.trim().toLowerCase() : "";
 }
 
-function fallbackName(name: string | undefined | null, email: string): string {
-  return name?.trim() || email.split("@")[0] || "Member";
+function fallbackName(name: string | undefined | null, email?: string | null): string {
+  return name?.trim() || (email ? email.split("@")[0] : "") || "Member";
 }
 
 function memberMatchesUser(member: Member, userId?: string, userEmail?: string): boolean {
@@ -105,49 +106,50 @@ export const firestoreDb = {
   async getSpaces(userId?: string, userEmail?: string, userName?: string): Promise<Space[]> {
     if (!db) return [];
     if (!userId && !userEmail) return [];
+    const database = db;
 
-    const spacesRef = collection(db, "spaces");
+    const spacesRef = collection(database, "spaces");
     const q = query(spacesRef, where("memberUids", "array-contains", userId));
     const snap = await getDocs(q);
 
-    const spaces: Space[] = [];
-    for (const d of snap.docs) {
-      const data = d.data();
-      // Fetch expenses subcollection
-      const expSnap = await getDocs(collection(db, "spaces", d.id, "expenses"));
-      const rawExpenses = expSnap.docs.map((ed) => ed.data() as Expense);
+    const spaces: Space[] = await Promise.all(
+      snap.docs.map(async (d) => {
+        const data = d.data();
+        const expSnap = await getDocs(collection(database, "spaces", d.id, "expenses"));
+        const rawExpenses = expSnap.docs.map((ed) => ed.data() as Expense);
 
-      // Sync member names with actual username if matching current user
-      const members: Member[] = (data.members || []).map((m: Member) => {
-        const isSelf = memberMatchesUser(m, userId, userEmail);
-        if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
-          return { ...m, name: userName.trim() };
-        }
-        return m;
-      });
+        // Sync member names with actual username if matching current user
+        const members: Member[] = (data.members || []).map((m: Member) => {
+          const isSelf = memberMatchesUser(m, userId, userEmail);
+          if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
+            return { ...m, name: userName.trim() };
+          }
+          return m;
+        });
 
-      const expenses: Expense[] = rawExpenses.map((exp) => {
-        const isSelf = memberMatchesUser(exp.paid_by, userId, userEmail);
-        if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
-          return {
-            ...exp,
-            paid_by: { ...exp.paid_by, name: userName.trim() },
-          };
-        }
-        return exp;
-      });
+        const expenses: Expense[] = rawExpenses.map((exp) => {
+          const isSelf = memberMatchesUser(exp.paid_by, userId, userEmail);
+          if (isSelf && userName && userName.trim().length >= 2 && userName.toLowerCase() !== "user") {
+            return {
+              ...exp,
+              paid_by: { ...exp.paid_by, name: userName.trim() },
+            };
+          }
+          return exp;
+        });
 
-      spaces.push({
-        id: d.id,
-        title: data.title,
-        emoji: data.emoji || "💸",
-        period: data.period || null,
-        currency: data.currency || "USD",
-        members: members,
-        expenses: expenses,
-        created_at: data.createdAt || nowIso(),
-      });
-    }
+        return {
+          id: d.id,
+          title: data.title,
+          emoji: data.emoji || "💸",
+          period: data.period || null,
+          currency: data.currency || "USD",
+          members: members,
+          expenses: expenses,
+          created_at: data.createdAt || nowIso(),
+        };
+      })
+    );
 
     return spaces;
   },
@@ -290,13 +292,14 @@ export const firestoreDb = {
     return { ok: true };
   },
 
-  async addMember(spaceId: string, body: { name: string; email: string }): Promise<Member> {
+  async addMember(spaceId: string, body: { name: string; email?: string }): Promise<Member> {
     if (!db) throw new Error("Database not connected");
     const spaceRef = doc(db, "spaces", spaceId);
-    const normalizedEmail = normalizeEmail(body.email);
+    const normalizedEmail = body.email ? normalizeEmail(body.email) : "";
+    const memberName = body.name.trim();
     const newMember: Member = {
       id: generateId(),
-      name: fallbackName(body.name, normalizedEmail),
+      name: memberName || (normalizedEmail ? normalizedEmail.split("@")[0] : "Member"),
       email: normalizedEmail,
       role: "member",
       avatar: null,
@@ -308,17 +311,25 @@ export const firestoreDb = {
       if (!spaceSnap.exists()) throw new Error("Space not found");
 
       const data = spaceSnap.data();
-      const existing = (data.members || []).some(
-        (member: Member) => normalizeEmail(member.email) === normalizedEmail,
-      );
+      const existing = normalizedEmail
+        ? (data.members || []).some(
+            (member: Member) => member.email && normalizeEmail(member.email) === normalizedEmail,
+          )
+        : (data.members || []).some(
+            (member: Member) => member.name.trim().toLowerCase() === memberName.toLowerCase() && !member.email,
+          );
       if (existing) {
-        throw new Error("That email is already part of this space.");
+        throw new Error(normalizedEmail ? "That email is already part of this space." : "A member with this name already exists in this space.");
       }
 
       const members = [...(data.members || []), newMember];
+      const memberEmails = normalizedEmail
+        ? uniqueStrings([...(data.memberEmails || []), normalizedEmail])
+        : (data.memberEmails || []);
+
       transaction.update(spaceRef, {
         members,
-        memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
+        memberEmails,
         updatedAt: nowIso(),
       });
     });
@@ -512,30 +523,46 @@ export const firestoreDb = {
       };
     });
 
+    const ensureMember = (memberId: string, fallback?: Member) => {
+      if (!memberTotals[memberId]) {
+        const found = members.find((m) => m.id === memberId) || fallback;
+        memberTotals[memberId] = {
+          member: found || {
+            id: memberId,
+            name: "Former Member",
+            email: "",
+            role: "member",
+          },
+          total_paid_cents: 0,
+          total_owed_cents: 0,
+        };
+      }
+    };
+
     expenses.forEach((e) => {
       const expenseCents = Math.round(Number(e.amount) * 100);
       totalSpentCents += expenseCents;
 
-      if (memberTotals[e.paid_by.id]) {
-        memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
-      }
+      ensureMember(e.paid_by.id, e.paid_by);
+      memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
 
-      if (e.split_mode === "equal" || !e.splits || e.splits.length === 0) {
+      if (e.splits && e.splits.length > 0) {
+        e.splits.forEach((sp) => {
+          ensureMember(sp.user_id);
+          if (memberTotals[sp.user_id]) {
+            memberTotals[sp.user_id].total_owed_cents += Math.round(Number(sp.amount) * 100);
+          }
+        });
+      } else {
         const count = Math.max(members.length, 1);
         const baseCents = Math.floor(expenseCents / count);
         const remainderCents = expenseCents % count;
 
         members.forEach((m, idx) => {
+          ensureMember(m.id, m);
           if (memberTotals[m.id]) {
-            // Distribute fractional remainder cents to the first N members so sum exactly matches
             const shareCents = baseCents + (idx < remainderCents ? 1 : 0);
             memberTotals[m.id].total_owed_cents += shareCents;
-          }
-        });
-      } else {
-        e.splits.forEach((sp) => {
-          if (memberTotals[sp.user_id]) {
-            memberTotals[sp.user_id].total_owed_cents += Math.round(Number(sp.amount) * 100);
           }
         });
       }
@@ -543,6 +570,8 @@ export const firestoreDb = {
 
     settlements.forEach((s) => {
       const settleCents = Math.round(Number(s.amount) * 100);
+      ensureMember(s.from_member.id, s.from_member);
+      ensureMember(s.to_member.id, s.to_member);
       if (memberTotals[s.from_member.id]) {
         memberTotals[s.from_member.id].total_paid_cents += settleCents;
       }
@@ -717,5 +746,63 @@ export const firestoreDb = {
     if (!db) throw new Error("Database not connected");
     await deleteDoc(doc(db, "invites", token));
     return { ok: true };
+  },
+
+  // -------------------------------------------------------------
+  // REAL-TIME LISTENER FOR ACTIVE SPACE
+  // -------------------------------------------------------------
+  subscribeToSpace(
+    spaceId: string,
+    onData: (data: { space: Space; settlements: SettlementRecord[] }) => void,
+  ): () => void {
+    if (!db) return () => {};
+    const database = db;
+    let spaceData: any = null;
+    let expensesList: Expense[] = [];
+    let settlementsList: SettlementRecord[] = [];
+
+    const triggerUpdate = () => {
+      if (!spaceData) return;
+      const space: Space = {
+        id: spaceId,
+        title: spaceData.title,
+        emoji: spaceData.emoji || "💸",
+        period: spaceData.period || null,
+        currency: spaceData.currency || "USD",
+        members: spaceData.members || [],
+        expenses: expensesList,
+        created_at: spaceData.createdAt || nowIso(),
+      };
+      onData({ space, settlements: settlementsList });
+    };
+
+    const unsubSpace = onSnapshot(doc(database, "spaces", spaceId), (snap) => {
+      if (snap.exists()) {
+        spaceData = snap.data();
+        triggerUpdate();
+      }
+    });
+
+    const unsubExpenses = onSnapshot(
+      query(collection(database, "spaces", spaceId, "expenses"), orderBy("created_at", "desc")),
+      (snap) => {
+        expensesList = snap.docs.map((d) => d.data() as Expense);
+        triggerUpdate();
+      },
+    );
+
+    const unsubSettlements = onSnapshot(
+      query(collection(database, "spaces", spaceId, "settlements"), orderBy("created_at", "desc")),
+      (snap) => {
+        settlementsList = snap.docs.map((d) => d.data() as SettlementRecord);
+        triggerUpdate();
+      },
+    );
+
+    return () => {
+      unsubSpace();
+      unsubExpenses();
+      unsubSettlements();
+    };
   },
 };

@@ -15,29 +15,46 @@ function computeSummary(space, expenses, settlements) {
     };
   });
 
+  const ensureMember = (memberId, fallback) => {
+    if (!memberTotals[memberId]) {
+      const found = members.find((m) => m.id === memberId) || fallback;
+      memberTotals[memberId] = {
+        member: found || {
+          id: memberId,
+          name: "Former Member",
+          email: "",
+          role: "member",
+        },
+        total_paid_cents: 0,
+        total_owed_cents: 0,
+      };
+    }
+  };
+
   expenses.forEach((e) => {
     const expenseCents = Math.round(Number(e.amount) * 100);
     totalSpentCents += expenseCents;
 
-    if (memberTotals[e.paid_by.id]) {
-      memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
-    }
+    ensureMember(e.paid_by.id, e.paid_by);
+    memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
 
-    if (e.split_mode === "equal" || !e.splits || e.splits.length === 0) {
+    if (e.splits && e.splits.length > 0) {
+      e.splits.forEach((sp) => {
+        ensureMember(sp.user_id);
+        if (memberTotals[sp.user_id]) {
+          memberTotals[sp.user_id].total_owed_cents += Math.round(Number(sp.amount) * 100);
+        }
+      });
+    } else {
       const count = Math.max(members.length, 1);
       const baseCents = Math.floor(expenseCents / count);
       const remainderCents = expenseCents % count;
 
       members.forEach((m, idx) => {
+        ensureMember(m.id, m);
         if (memberTotals[m.id]) {
           const shareCents = baseCents + (idx < remainderCents ? 1 : 0);
           memberTotals[m.id].total_owed_cents += shareCents;
-        }
-      });
-    } else {
-      e.splits.forEach((sp) => {
-        if (memberTotals[sp.user_id]) {
-          memberTotals[sp.user_id].total_owed_cents += Math.round(Number(sp.amount) * 100);
         }
       });
     }
@@ -45,6 +62,8 @@ function computeSummary(space, expenses, settlements) {
 
   settlements.forEach((s) => {
     const settleCents = Math.round(Number(s.amount) * 100);
+    ensureMember(s.from_member.id, s.from_member);
+    ensureMember(s.to_member.id, s.to_member);
     if (memberTotals[s.from_member.id]) {
       memberTotals[s.from_member.id].total_paid_cents += settleCents;
     }
@@ -219,4 +238,77 @@ test('Direct settlement recording reconciles balance to zero', () => {
   assert.equal(m1.net_balance, 0);
   assert.equal(m2.net_balance, 0);
   assert.equal(summary.settlements.length, 0);
+});
+
+test('Subset Equal Split: respects selected splits instead of dividing among all space members', () => {
+  const space = {
+    members: [
+      { id: 'm1', name: 'Alice' },
+      { id: 'm2', name: 'Bob' },
+      { id: 'm3', name: 'Charlie' },
+    ]
+  };
+
+  // Alice pays $30 for lunch with Bob ONLY (Charlie is excluded)
+  const expenses = [
+    {
+      id: 'e1',
+      amount: 30.00,
+      paid_by: { id: 'm1', name: 'Alice' },
+      split_mode: 'equal',
+      splits: [
+        { user_id: 'm1', amount: 15.00 },
+        { user_id: 'm2', amount: 15.00 },
+      ]
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+
+  const m1 = summary.member_balances.find(b => b.member.id === 'm1');
+  const m2 = summary.member_balances.find(b => b.member.id === 'm2');
+  const m3 = summary.member_balances.find(b => b.member.id === 'm3');
+
+  // Alice paid 30, owes 15 -> net +15
+  assert.equal(m1.net_balance, 15.00);
+  // Bob paid 0, owes 15 -> net -15
+  assert.equal(m2.net_balance, -15.00);
+  // Charlie was not in the split -> net 0
+  assert.equal(m3.net_balance, 0);
+
+  // Settlement should be Bob -> Alice $15, Charlie has nothing to pay
+  assert.equal(summary.settlements.length, 1);
+  assert.equal(summary.settlements[0].from_member.id, 'm2');
+  assert.equal(summary.settlements[0].to_member.id, 'm1');
+  assert.equal(summary.settlements[0].amount, 15.00);
+});
+
+test('Departed Member: retains balance equilibrium without dropping orphaned funds', () => {
+  const space = {
+    members: [
+      { id: 'm1', name: 'Alice' },
+      { id: 'm2', name: 'Bob' },
+    ]
+  };
+
+  // Former member 'm_former' paid $40 for Alice & Bob, but m_former has left the space
+  const expenses = [
+    {
+      id: 'e1',
+      amount: 40.00,
+      paid_by: { id: 'm_former', name: 'Former Member' },
+      split_mode: 'equal',
+      splits: [
+        { user_id: 'm1', amount: 20.00 },
+        { user_id: 'm2', amount: 20.00 },
+      ]
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+
+  // Net balances across all participants must sum to EXACTLY 0
+  const netSum = summary.member_balances.reduce((acc, mb) => acc + mb.net_balance, 0);
+  assert.equal(Math.round(netSum * 100) / 100, 0);
+  assert.equal(summary.member_balances.length, 3);
 });

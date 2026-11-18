@@ -23,13 +23,13 @@ export function MembersModal({
   const [added, setAdded] = useState(0);
 
   async function add() {
-    if (!name.trim() || !email.trim()) {
-      return setErr("Enter both a name and email address.");
+    if (!name.trim()) {
+      return setErr("Please enter a name for this person.");
     }
     setSaving(true);
     setErr("");
     try {
-      await api.addMember(space.id, { name: name.trim(), email: email.trim() });
+      await api.addMember(space.id, { name: name.trim(), email: email.trim() || undefined });
       setName("");
       setEmail("");
       setAdded((n) => n + 1);
@@ -71,7 +71,7 @@ export function MembersModal({
                 <Avatar m={{ ...m, name: displayName }} />
                 <div className="member-info">
                   <strong>{displayName}</strong>
-                  <small>{m.email}</small>
+                  <small>{m.email || "No email linked"}</small>
                 </div>
                 <span className={`role-badge ${m.role}`}>{m.role}</span>
               </div>
@@ -88,6 +88,7 @@ export function MembersModal({
               Name
               <input
                 value={name}
+                placeholder="e.g. Rahul, Sarah"
                 onChange={(e) => {
                   setName(e.target.value);
                   setErr("");
@@ -96,9 +97,10 @@ export function MembersModal({
               />
             </label>
             <label>
-              Email
+              Email (optional)
               <input
                 type="email"
+                placeholder="alex@example.com (optional)"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);

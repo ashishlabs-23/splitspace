@@ -275,16 +275,18 @@ export function ExpenseModal({
 
     if (mode === "exact") {
       let sum = 0;
+      const targetAmount = isForeign ? rawAmount : calculatedTotalInSpaceCurrency;
       const items = activeMemberIds.map((id) => {
         const val = Number(splitInputs[id]) || 0;
         sum += val;
-        return { user_id: id, amount: +val.toFixed(2), split_value: null };
+        const converted = isForeign ? +(val * rateNum).toFixed(2) : +val.toFixed(2);
+        return { user_id: id, amount: converted, split_value: isForeign ? val : null };
       });
       const roundedSum = +sum.toFixed(2);
       return {
-        isBalanced: Math.abs(roundedSum - calculatedTotalInSpaceCurrency) < 0.009,
+        isBalanced: Math.abs(roundedSum - targetAmount) < 0.009,
         sum: roundedSum,
-        target: calculatedTotalInSpaceCurrency,
+        target: targetAmount,
         items,
       };
     }
@@ -347,7 +349,7 @@ export function ExpenseModal({
     }
     if (!splitCalculations.isBalanced) {
       if (mode === "exact") {
-        setErr(`The custom amounts sum to ${formatMoney(splitCalculations.sum, space.currency)}, which doesn't equal ${formatMoney(calculatedTotalInSpaceCurrency, space.currency)}.`);
+        setErr(`The custom amounts sum to ${formatMoney(splitCalculations.sum, currency)}, which doesn't equal ${formatMoney(splitCalculations.target, currency)}.`);
       } else if (mode === "percentage") {
         setErr(`Percentages must sum to 100% (currently ${splitCalculations.sum}%).`);
       }

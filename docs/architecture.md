@@ -1,29 +1,29 @@
-# Architecture notes
+# Architecture Notes
 
-## Client
+## Client (Next.js 16 + React 19)
 
-The Next.js client keeps a small local UI state and delegates server state to typed API helpers. The screen intentionally centers around one active space at a time.
+The Next.js client uses Turbopack, Tailwind CSS, Framer Motion, and client-side App Router structure. State centers around the currently active space, with real-time Firestore listeners keeping members in sync.
 
-## Server
+## Cloud Firestore Database & Security Rules
 
-FastAPI exposes clear resource boundaries:
-- `/auth/*`
-- `/spaces`
-- `/spaces/{space_id}/members`
-- `/spaces/{space_id}/expenses`
-- `/spaces/{space_id}/summary`
-- `/spaces/{space_id}/invite`
+SplitSpace operates serverless on Google Cloud Firestore:
+- `/spaces/{space_id}`: Primary space metadata and membership lists (`memberUids`, `memberEmails`, `members`).
+- `/spaces/{space_id}/expenses/{expense_id}`: Granular expense records with immutable split allocations.
+- `/spaces/{space_id}/settlements/{settlement_id}`: Direct peer-to-peer settlement transaction records.
+- `/invites/{token}`: Shareable invite records with time-to-live expirations.
 
-The summary endpoint performs debt simplification using a greedy creditor/debtor matching pass. Expense splits are persisted as individual ledger rows, which prevents the frontend from becoming the accounting source of truth.
+Granular Firestore Security Rules enforce access boundaries:
+- Only verified space members can read/write expenses and settlements.
+- Base space fields (creator, creation timestamp) cannot be tampered with.
+- Members cannot delete spaces unless they are the space owner.
 
-## Security
+## Debt Engine & Simplification
 
-- Passwords are hashed with Argon2 through `pwdlib`.
-- API routes require JWT bearer authentication.
-- Space membership is checked server-side on resource requests.
-- Expense split totals are validated server-side.
-- Secrets are environment variables.
+The accounting engine performs an exact integer-cent debt minimization pass:
+1. Calculates net balance per participant using immutable expense split entries.
+2. Segregates participants into creditors (net positive balance) and debtors (net negative balance).
+3. Executes a greedy transitive debt matching algorithm to collapse circular liabilities into minimal direct transactions.
 
-## Usability
+## Multi-Currency Spend Lens
 
-Advanced accounting features are deliberately hidden behind an explicit `Custom` split choice. The common path stays extremely short.
+Expenses support multi-currency logging with live conversion to the space's base currency, cached with 10-minute TTLs. Real-time conversion preserves both original expenditure and normalized group accounting.

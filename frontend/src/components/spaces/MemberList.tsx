@@ -43,7 +43,7 @@ export function MemberList({
               <Avatar m={{ ...m, name: displayName }} size="sm" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{displayName}</strong>
-                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{m.email}</small>
+                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", color: m.email ? undefined : "var(--text3)" }}>{m.email || "Member"}</small>
               </div>
               <span className={`role-badge ${m.role}`}>{m.role}</span>
             </div>
