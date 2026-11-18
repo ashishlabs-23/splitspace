@@ -125,6 +125,19 @@ export function LandingPage({
       setMode("register"); // Default to register for new users joining
     }
   }, [joinToken]);
+
+  // Handle direct hash navigation (e.g. #how-it-works, #features, #architecture)
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash.substring(1);
+      const element = document.getElementById(hash);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: "smooth" });
+        }, 150);
+      }
+    }
+  }, []);
   const [mode, setMode] = useState<"login" | "register" | "forgot">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

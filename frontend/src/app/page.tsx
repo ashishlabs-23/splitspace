@@ -180,7 +180,7 @@ export default function Home() {
   const [joinToken, setJoinToken] = useState<string>("");
   const joiningRef = React.useRef(false); // prevent double-join
   const [signOutSheetOpen, setSignOutSheetOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"dashboard" | "landing">("dashboard");
+  const [viewMode, setViewMode] = useState<"dashboard" | "landing">("landing");
   const [spendLensCurrency, setSpendLensCurrency] = useState<string>("");
   const [isDemo, setIsDemo] = useState(false);
 
@@ -326,21 +326,22 @@ export default function Home() {
     onToggleSidebar: () => setSidebar((v) => !v),
   });
 
-  // Browser History & Back/Forward Navigation Sync
+  // Browser History & Navigation Sync
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const currentState = window.history.state;
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get("view");
+    const spaceParam = params.get("space");
 
-    // Seed the history stack: landing → dashboard
-    // This ensures pressing Back from dashboard always shows the landing page
-    if (!currentState?.view) {
-      // No history yet — build the stack: landing first, then dashboard on top
+    // If explicit ?space or ?view=dashboard is provided in URL, switch to dashboard
+    if (spaceParam || viewParam === "dashboard") {
+      setViewMode("dashboard");
+      window.history.replaceState({ view: "dashboard" }, "");
+    } else {
+      // Landing page is the first page shown when opening the website
+      setViewMode("landing");
       window.history.replaceState({ view: "landing" }, "");
-      window.history.pushState({ view: "dashboard" }, "");
-    } else if (currentState?.view === "dashboard") {
-      // Already on dashboard state but might not have landing behind it
-      // We can't insert behind, but we ensure the current state is correct
     }
 
     const handlePopState = (e: PopStateEvent) => {
@@ -348,7 +349,6 @@ export default function Home() {
       if (view === "landing" || view === "dashboard") {
         setViewMode(view);
       } else {
-        // No state — treat as going back to landing
         setViewMode("landing");
         window.history.replaceState({ view: "landing" }, "");
       }
