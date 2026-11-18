@@ -40,6 +40,9 @@ export interface Expense {
   created_by_uid?: string;
   split_mode?: SplitMode;
   splits: Split[];
+  is_recurring?: boolean;
+  recurring_interval?: "weekly" | "monthly" | "yearly";
+  next_due_date?: string | null;
 }
 
 export interface SettlementRecord {
@@ -49,10 +52,35 @@ export interface SettlementRecord {
   to_member: Member;
   amount: number;
   currency: string;
+  original_amount?: number | null;
+  original_currency?: string | null;
+  exchange_rate?: number | null;
+  payment_method?: string | null;
   note?: string | null;
   created_at: string;
   updated_at?: string;
   created_by_uid?: string;
+}
+
+export type ActivityType =
+  | "expense_created"
+  | "expense_updated"
+  | "expense_deleted"
+  | "settlement_created"
+  | "settlement_deleted"
+  | "member_joined"
+  | "member_left";
+
+export interface ActivityItem {
+  id: string;
+  space_id: string;
+  type: ActivityType;
+  actor_name: string;
+  actor_id: string;
+  details: string;
+  amount?: number;
+  currency?: string;
+  created_at: string;
 }
 
 export interface Space {
@@ -247,6 +275,9 @@ export const api = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
+      is_recurring?: boolean;
+      recurring_interval?: "weekly" | "monthly" | "yearly";
+      next_due_date?: string;
     }
   ): Promise<Expense> => {
     requireFirebaseConfigured();
@@ -270,6 +301,9 @@ export const api = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
+      is_recurring?: boolean;
+      recurring_interval?: "weekly" | "monthly" | "yearly";
+      next_due_date?: string;
     }
   ): Promise<Expense> => {
     requireFirebaseConfigured();
@@ -280,7 +314,15 @@ export const api = {
 
   deleteExpense: async (spaceId: string, expenseId: string): Promise<{ ok: boolean }> => {
     requireFirebaseConfigured();
-    return firestoreDb.deleteExpense(spaceId, expenseId);
+    const user = getCurrentUser();
+    return firestoreDb.deleteExpense(spaceId, expenseId, user);
+  },
+
+  postRecurringExpense: async (spaceId: string, expenseId: string): Promise<Expense> => {
+    requireFirebaseConfigured();
+    const user = getCurrentUser();
+    if (!user) throw new Error("Authentication required to post recurring expense");
+    return firestoreDb.postRecurringExpense(spaceId, expenseId, user);
   },
 
   settlements: async (spaceId: string): Promise<SettlementRecord[]> => {
@@ -295,6 +337,10 @@ export const api = {
       to_member_id: string;
       amount: number;
       currency?: string;
+      original_amount?: number;
+      original_currency?: string;
+      exchange_rate?: number;
+      payment_method?: string;
       note?: string;
     }
   ): Promise<SettlementRecord> => {
@@ -306,7 +352,20 @@ export const api = {
 
   deleteSettlement: async (spaceId: string, settlementId: string): Promise<{ ok: boolean }> => {
     requireFirebaseConfigured();
-    return firestoreDb.deleteSettlement(spaceId, settlementId);
+    const user = getCurrentUser();
+    return firestoreDb.deleteSettlement(spaceId, settlementId, user);
+  },
+
+  activities: async (spaceId: string): Promise<ActivityItem[]> => {
+    requireFirebaseConfigured();
+    return firestoreDb.getActivities(spaceId);
+  },
+
+  subscribeToActivity: (
+    spaceId: string,
+    onData: (activities: ActivityItem[]) => void
+  ): (() => void) => {
+    return firestoreDb.subscribeToActivity(spaceId, onData);
   },
 
   invite: async (spaceId: string): Promise<{ url: string; token: string }> => {

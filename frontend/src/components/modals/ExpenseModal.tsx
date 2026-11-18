@@ -14,6 +14,7 @@ import {
   Tag,
   DollarSign,
   FileText,
+  Repeat,
 } from "lucide-react";
 import { EXPENSE_CATEGORIES, getCategoryMeta } from "@/lib/categories";
 import {
@@ -199,6 +200,10 @@ export function ExpenseModal({
   const [payer, setPayer] = useState(initialExpense?.paid_by.id ?? space.members[0]?.id ?? "");
   const [category, setCategory] = useState(initialExpense?.category ?? "food");
   const [note, setNote] = useState(initialExpense?.note ?? "");
+  const [isRecurring, setIsRecurring] = useState(Boolean(initialExpense?.is_recurring));
+  const [recurringInterval, setRecurringInterval] = useState<"weekly" | "monthly" | "yearly">(
+    initialExpense?.recurring_interval || "monthly"
+  );
 
   // Splits & Mode
   const initialSplits = initialExpense?.splits ?? [];
@@ -370,6 +375,8 @@ export function ExpenseModal({
         paid_by: payer,
         split_mode: mode,
         splits: splitCalculations.items,
+        is_recurring: isRecurring,
+        recurring_interval: isRecurring ? recurringInterval : undefined,
       };
 
       if (isEditing && initialExpense) {
@@ -886,6 +893,68 @@ export function ExpenseModal({
               }}
               className="focus:border-[#e0562e] focus:ring-2 focus:ring-[#e0562e]/20"
             />
+          </div>
+
+          {/* Recurring / Repeat Bill Engine */}
+          <div
+            style={{
+              background: isRecurring ? "#fef7f2" : "#ffffff",
+              border: `1.5px solid ${isRecurring ? "#fbd8cd" : "#e5e7eb"}`,
+              borderRadius: 14,
+              padding: "12px 14px",
+              transition: "all 0.15s",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", width: "100%" }}>
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  style={{ accentColor: "#e0562e", width: 16, height: 16, cursor: "pointer" }}
+                />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1e2029", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Repeat size={14} className="text-orange-600" />
+                    <span>Recurring Bill Engine</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#6b7280" }}>
+                    Automatically track repeat bills (Rent, Utilities, Subscriptions, Groceries)
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {isRecurring && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #fbd8cd", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#e0562e" }}>
+                  Repeat every:
+                </span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["weekly", "monthly", "yearly"] as const).map((interval) => (
+                    <button
+                      key={interval}
+                      type="button"
+                      onClick={() => setRecurringInterval(interval)}
+                      style={{
+                        background: recurringInterval === interval ? "#e0562e" : "#ffffff",
+                        color: recurringInterval === interval ? "#ffffff" : "#475569",
+                        border: "1px solid",
+                        borderColor: recurringInterval === interval ? "#e0562e" : "#cbd5e1",
+                        borderRadius: 8,
+                        padding: "5px 12px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {interval}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Modal Footer ── */}

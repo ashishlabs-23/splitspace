@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { Space, Expense } from "@/lib/api";
+import { Space, Expense, api } from "@/lib/api";
 import { formatMoney, convertAmount } from "@/lib/currencies";
-import { Plus, MoreVertical, Edit2, Trash2, Receipt, Calendar, Users, FileText, ArrowRight } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Trash2, Receipt, Calendar, Users, FileText, ArrowRight, Repeat } from "lucide-react";
 import ScrollReveal from "@/components/ui/scroll-reveal";
 import { Avatar } from "@/components/ui/Avatar";
 import { getCategoryMeta } from "@/lib/categories";
@@ -124,6 +124,27 @@ export function ExpenseList({
                         >
                           {cat.label}
                         </span>
+                        {e.is_recurring && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              background: "#ecfdf5",
+                              color: "#059669",
+                              padding: "2px 7px",
+                              borderRadius: 6,
+                              letterSpacing: "0.04em",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                            }}
+                            title={`Repeats ${e.recurring_interval || 'monthly'}${e.next_due_date ? ` · Next due: ${e.next_due_date}` : ''}`}
+                          >
+                            <Repeat size={10} />
+                            {e.recurring_interval || "recurring"}
+                          </span>
+                        )}
                       </div>
                       <small style={{ color: "#6b7280", fontSize: 11.5, display: "block", marginTop: 2 }}>
                         Paid by {e.paid_by.name} · {new Date(e.created_at).toLocaleDateString()}
@@ -181,6 +202,37 @@ export function ExpenseList({
                               }}
                               onClick={(evt) => evt.stopPropagation()}
                             >
+                          {e.is_recurring && (
+                            <button
+                              type="button"
+                              style={{
+                                width: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "8px 10px",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "#059669",
+                                background: "transparent",
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                border: "none",
+                              }}
+                              className="hover:bg-emerald-50"
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                try {
+                                  await api.postRecurringExpense(space.id, e.id);
+                                  window.location.reload();
+                                } catch (err: any) {
+                                  alert(err.message || "Failed to post next occurrence");
+                                }
+                              }}
+                            >
+                              <Repeat size={13} /> Post Next
+                            </button>
+                          )}
                           <button
                             type="button"
                             style={{

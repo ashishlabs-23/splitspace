@@ -87,7 +87,10 @@ service cloud.firestore {
           'updated_at',
           'created_by_uid',
           'split_mode',
-          'splits'
+          'splits',
+          'is_recurring',
+          'recurring_interval',
+          'next_due_date'
         ])
         && request.resource.data.id == expenseId
         && request.resource.data.title is string
@@ -118,6 +121,10 @@ service cloud.firestore {
           'to_member',
           'amount',
           'currency',
+          'original_amount',
+          'original_currency',
+          'exchange_rate',
+          'payment_method',
           'note',
           'created_at',
           'updated_at',
@@ -181,6 +188,12 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if isSpaceMember(spaceId)
           && (isSpaceOwner(spaceId) || (resourceHasCreator() && resource.data.created_by_uid == request.auth.uid));
+      }
+
+      match /activity/{activityId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId);
+        allow update, delete: if false;
       }
     }
 

@@ -1,6 +1,6 @@
 "use client";
 import { Space } from "@/lib/api";
-import { Plus, Users, Download, ArrowRightLeft, Trash2 } from "lucide-react";
+import { Plus, Users, Download, ArrowRightLeft, Trash2, Bell } from "lucide-react";
 
 export function SpaceHeader({
   active,
@@ -10,6 +10,8 @@ export function SpaceHeader({
   onSettleUp,
   onExport,
   onDeleteSpace,
+  onOpenActivity,
+  activityCount,
 }: {
   active?: Space;
   greeting: string;
@@ -18,6 +20,8 @@ export function SpaceHeader({
   onSettleUp: () => void;
   onExport: () => void;
   onDeleteSpace: () => void;
+  onOpenActivity?: () => void;
+  activityCount?: number;
 }) {
   return (
     <header className="topbar">
@@ -35,6 +39,38 @@ export function SpaceHeader({
       </div>
 
       <div className="top-actions">
+        <button
+          className="btn ghost"
+          onClick={onOpenActivity}
+          disabled={!active}
+          title="Space activity & changelog"
+          aria-label="View space activity"
+          style={{ position: "relative" }}
+        >
+          <Bell size={14} /> Activity
+          {activityCount !== undefined && activityCount > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                background: "#e0562e",
+                color: "#ffffff",
+                fontSize: 9.5,
+                fontWeight: 700,
+                borderRadius: "50%",
+                minWidth: 16,
+                height: 16,
+                padding: "0 2px",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              {activityCount > 9 ? "9+" : activityCount}
+            </span>
+          )}
+        </button>
+
         <button
           className="btn ghost"
           onClick={onExport}

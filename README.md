@@ -20,8 +20,11 @@ SplitSpace is a high-performance, real-time group expense management and debt si
 - **🔗 Shareable Invite Engine & Deep Linking**: 1-click shareable invite links (`/?join={token}`) with public metadata preview and atomic Firestore membership synchronization, plus URL space deep-linking (`/?space={spaceId}`).
 - **👥 Flexible Member Management**: Add group members with just their names without mandating email addresses (emails are optional).
 - **💡 Smart Debt Minimization Engine**: Exact integer-cent greedy flow algorithm that reduces complex circular group debts down to the minimal number of direct settlement transactions while preserving zero-sum balance equilibrium even when members depart.
-- **🔄 Live Real-Time Multi-Client Sync**: Subscribed to Firestore `onSnapshot` real-time listeners across spaces, expenses, and settlements. All participants see instant live ledger updates (<1 second) without page reloads.
-- **🌍 Multi-Currency Spend Lens**: Real-time live exchange rate converter supporting INR, USD, EUR, GBP, AED, JPY, CAD with 1-click live toggle and 10-minute caching.
+- **🔄 Live Real-Time Multi-Client Sync**: Subscribed to Firestore `onSnapshot` real-time listeners across spaces, expenses, settlements, and activity. All participants see instant live ledger updates (<1 second) without page reloads.
+- **🌍 Multi-Currency Settlements & Spend Lens**: Real-time live exchange rate converter supporting INR, USD, EUR, GBP, AED, JPY, CAD. Log expenses and record settlements in any world currency with automatic FX conversion back to the space base currency.
+- **⚡ 1-Click Direct UPI & PayPal Payment Links**: Deep-link directly into banking apps (`upi://pay?pa=...`) for GPay, PhonePe, Paytm, or launch international `paypal.me` transfers directly from the settlement modal.
+- **🔁 Recurring Expense Engine**: Automated tracking for repeating bills (Rent, Utilities, Subscriptions, Groceries) across weekly, monthly, or yearly intervals with 1-click next occurrence posting.
+- **📜 Live Audit Trail & Notification Bell**: Itemized visual activity changelog tracking every expense creation, update, deletion, direct payment, and membership change in real time with quick search and filter.
 - **📊 4 Splitting Paradigms**: Equal (with subset member exclusions), Exact (with foreign currency cross-validation), Percentage, and Custom Weight Shares.
 - **🔒 Enterprise-Grade Security**: Granular Firebase Security Rules protecting spaces, expenses, settlements, and member privacy.
 - **📱 Touch & Mobile Optimized**: Responsive bento cards, gesture-driven slide-out drawers, tactile feedback, and dynamic keyboard shortcuts.
@@ -119,16 +122,12 @@ node scripts/deploy-hosting.js
 
 ---
 
-## ⚠️ Current Limitations & Roadmap
+## ⚠️ Product Roadmap & Deferred Features
 
-While SplitSpace provides accurate real-time debt calculation and multi-currency tracking, the following capabilities are currently on the product roadmap:
+The following capabilities are currently on the product roadmap:
 
-1. **Receipt / Bill Photo Attachments**: Direct camera capture and file upload for physical receipt photos (requires Firebase Storage integration).
-2. **Base-Currency-Only Settlements**: Direct settlement payments are recorded in the space's base currency. Multi-currency settlement logging (e.g., settling in cash USD for an INR space) is currently handled via manual conversion.
-3. **Recurring Expenses**: Automation for monthly repeating expenses (rent, utilities, subscription streaming services).
-4. **Audit Trail & Changelog**: While transactions update in real time, an itemized visual change history ("who edited/deleted an expense and when") is not yet surfaced.
-5. **Push Notifications (FCM)**: In-app real-time synchronization updates open tabs instantly, but background mobile/desktop push notifications for offline users are not yet active.
-6. **In-App Payment Gateway**: Settlements are bookkeeping entries ("I paid you"); direct 1-click UPI / Stripe / PayPal bank transfer initiation inside the modal is planned.
+1. **Receipt / Bill Photo Attachments (Planned)**: Direct camera capture, OCR extraction, and storage for physical bill photos and PDF receipts (requires Firebase Storage integration).
+2. **Background Push Notifications (FCM)**: In-app real-time synchronization updates open tabs instantly, but background mobile/desktop push notifications for completely offline closed browsers are planned.
 
 ---
 

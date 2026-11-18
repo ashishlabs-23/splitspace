@@ -137,6 +137,7 @@ import { CreateSpaceModal } from "@/components/modals/CreateSpaceModal";
 import { InviteModal } from "@/components/modals/InviteModal";
 import { MembersModal } from "@/components/modals/MembersModal";
 import { DeleteSpaceModal } from "@/components/modals/DeleteSpaceModal";
+import { ActivityModal } from "@/components/modals/ActivityModal";
 import { useToast } from "@/components/smoothui/toast";
 import { TiltCard, TiltCardLayer } from "@/components/ui/tilt-card";
 import { Sheet, SheetBackdrop, SheetPanel } from "@/components/smoothui/sheet";
@@ -167,6 +168,7 @@ export default function Home() {
 
   // Modals state
   const [modal, setModal] = useState<string | null>(null);
+  const [activityCount, setActivityCount] = useState<number>(0);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [spaceToDelete, setSpaceToDelete] = useState<Space | null>(null);
   const [settlePrefill, setSettlePrefill] = useState<{
@@ -228,8 +230,13 @@ export default function Home() {
       api.summary(activeId).then(setSummary).catch(console.warn);
     });
 
+    const unsubscribeActivity = api.subscribeToActivity(activeId, (acts) => {
+      setActivityCount(acts.length);
+    });
+
     return () => {
       unsubscribe();
+      unsubscribeActivity();
     };
   }, [activeId, isDemo, user]);
 
@@ -660,6 +667,8 @@ export default function Home() {
               setModal("settleUp");
             }}
             onExport={() => setModal("export")}
+            onOpenActivity={() => setModal("activity")}
+            activityCount={activityCount}
             onDeleteSpace={() => {
               if (active) {
                 setSpaceToDelete(active);
@@ -929,6 +938,13 @@ export default function Home() {
             toast.info("Space removed");
             refresh();
           }}
+        />
+      )}
+
+      {modal === "activity" && active && (
+        <ActivityModal
+          space={active}
+          onClose={() => setModal(null)}
         />
       )}
 

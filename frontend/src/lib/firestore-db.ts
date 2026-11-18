@@ -15,7 +15,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction } from "./api";
+import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction, ActivityItem, ActivityType } from "./api";
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -289,6 +289,13 @@ export const firestoreDb = {
       });
     });
 
+    await this.logActivity(spaceId, {
+      type: "member_left",
+      actor_name: user.name || "Member",
+      actor_id: user.id,
+      details: `${user.name || "A member"} left the space`,
+    });
+
     return { ok: true };
   },
 
@@ -334,7 +341,97 @@ export const firestoreDb = {
       });
     });
 
+    await this.logActivity(spaceId, {
+      type: "member_joined",
+      actor_name: newMember.name,
+      actor_id: newMember.id,
+      details: `${newMember.name} joined the space`,
+    });
+
     return newMember;
+  },
+
+  // -------------------------------------------------------------
+  // ACTIVITY AUDIT TRAIL / CHANGELOG
+  // -------------------------------------------------------------
+  async logActivity(
+    spaceId: string,
+    activity: {
+      type: ActivityType;
+      actor_name: string;
+      actor_id: string;
+      details: string;
+      amount?: number;
+      currency?: string;
+    }
+  ): Promise<void> {
+    if (!db) return;
+    try {
+      const actId = generateId();
+      const payload: any = {
+        id: actId,
+        space_id: spaceId,
+        type: activity.type,
+        actor_name: activity.actor_name,
+        actor_id: activity.actor_id,
+        details: activity.details,
+        created_at: nowIso(),
+      };
+      if (typeof activity.amount === "number") {
+        payload.amount = activity.amount;
+      }
+      if (activity.currency) {
+        payload.currency = activity.currency;
+      }
+      await setDoc(doc(db, "spaces", spaceId, "activity", actId), payload);
+    } catch (err) {
+      console.warn("Could not log space activity:", err);
+    }
+  },
+
+  async getActivities(spaceId: string): Promise<ActivityItem[]> {
+    if (!db) return [];
+    try {
+      const snap = await getDocs(
+        query(collection(db, "spaces", spaceId, "activity"), orderBy("created_at", "desc"))
+      );
+      return snap.docs.map((d) => d.data() as ActivityItem);
+    } catch (err) {
+      console.warn("Failed to get activities:", err);
+      return [];
+    }
+  },
+
+  subscribeToActivity(
+    spaceId: string,
+    onData: (activities: ActivityItem[]) => void
+  ): (() => void) {
+    if (!db) return () => {};
+    try {
+      const q = query(collection(db, "spaces", spaceId, "activity"), orderBy("created_at", "desc"));
+      return onSnapshot(
+        q,
+        (snap) => {
+          const list = snap.docs.map((d) => d.data() as ActivityItem);
+          onData(list);
+        },
+        (err) => console.warn("Activity subscription error:", err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  calculateNextDueDate(interval: "weekly" | "monthly" | "yearly" = "monthly", fromDate?: string): string {
+    const base = fromDate ? new Date(fromDate) : new Date();
+    if (interval === "weekly") {
+      base.setDate(base.getDate() + 7);
+    } else if (interval === "yearly") {
+      base.setFullYear(base.getFullYear() + 1);
+    } else {
+      base.setMonth(base.getMonth() + 1);
+    }
+    return base.toISOString().split("T")[0];
   },
 
   // -------------------------------------------------------------
@@ -354,6 +451,9 @@ export const firestoreDb = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
+      is_recurring?: boolean;
+      recurring_interval?: "weekly" | "monthly" | "yearly";
+      next_due_date?: string;
     },
     actor: Member,
   ): Promise<Expense> {
@@ -381,7 +481,23 @@ export const firestoreDb = {
       created_by_uid: actor.id,
     };
 
+    if (body.is_recurring) {
+      newExpense.is_recurring = true;
+      newExpense.recurring_interval = body.recurring_interval || "monthly";
+      newExpense.next_due_date = body.next_due_date || this.calculateNextDueDate(newExpense.recurring_interval);
+    }
+
     await setDoc(doc(db, "spaces", spaceId, "expenses", expId), newExpense);
+
+    await this.logActivity(spaceId, {
+      type: "expense_created",
+      actor_name: actor.name,
+      actor_id: actor.id,
+      details: `Added "${newExpense.title}" (${newExpense.currency} ${newExpense.amount.toFixed(2)}) paid by ${payer.name}`,
+      amount: newExpense.amount,
+      currency: newExpense.currency,
+    });
+
     return newExpense;
   },
 
@@ -400,6 +516,9 @@ export const firestoreDb = {
       paid_by: string;
       split_mode: SplitMode;
       splits: Split[];
+      is_recurring?: boolean;
+      recurring_interval?: "weekly" | "monthly" | "yearly";
+      next_due_date?: string;
     },
     actor: Member,
   ): Promise<Expense> {
@@ -429,14 +548,81 @@ export const firestoreDb = {
       created_by_uid: existingData.created_by_uid || actor.id,
     };
 
+    if (body.is_recurring) {
+      updatedExpense.is_recurring = true;
+      updatedExpense.recurring_interval = body.recurring_interval || existingData.recurring_interval || "monthly";
+      updatedExpense.next_due_date = body.next_due_date || existingData.next_due_date || this.calculateNextDueDate(updatedExpense.recurring_interval);
+    }
+
     await setDoc(expenseRef, updatedExpense);
+
+    await this.logActivity(spaceId, {
+      type: "expense_updated",
+      actor_name: actor.name,
+      actor_id: actor.id,
+      details: `Updated "${updatedExpense.title}" (${updatedExpense.currency} ${updatedExpense.amount.toFixed(2)})`,
+      amount: updatedExpense.amount,
+      currency: updatedExpense.currency,
+    });
+
     return updatedExpense;
   },
 
-  async deleteExpense(spaceId: string, expenseId: string): Promise<{ ok: boolean }> {
+  async deleteExpense(spaceId: string, expenseId: string, actor?: Member | null): Promise<{ ok: boolean }> {
     if (!db) throw new Error("Database not connected");
-    await deleteDoc(doc(db, "spaces", spaceId, "expenses", expenseId));
+    const expenseRef = doc(db, "spaces", spaceId, "expenses", expenseId);
+    const snap = await getDoc(expenseRef);
+    const data = snap.exists() ? (snap.data() as Expense) : null;
+    await deleteDoc(expenseRef);
+
+    if (actor && data) {
+      await this.logActivity(spaceId, {
+        type: "expense_deleted",
+        actor_name: actor.name,
+        actor_id: actor.id,
+        details: `Deleted expense "${data.title}" (${data.currency} ${data.amount.toFixed(2)})`,
+        amount: data.amount,
+        currency: data.currency,
+      });
+    }
+
     return { ok: true };
+  },
+
+  async postRecurringExpense(spaceId: string, expenseId: string, actor: Member): Promise<Expense> {
+    if (!db) throw new Error("Database not connected");
+    const expRef = doc(db, "spaces", spaceId, "expenses", expenseId);
+    const snap = await getDoc(expRef);
+    if (!snap.exists()) throw new Error("Expense template not found");
+    const exp = snap.data() as Expense;
+
+    const nextDue = this.calculateNextDueDate(exp.recurring_interval || "monthly", exp.next_due_date || undefined);
+
+    await updateDoc(expRef, {
+      next_due_date: nextDue,
+      updated_at: nowIso(),
+    });
+
+    const dateLabel = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const instanceTitle = `${exp.title} (${dateLabel})`;
+
+    return this.createExpense(
+      spaceId,
+      {
+        title: instanceTitle,
+        amount: exp.amount,
+        currency: exp.currency,
+        original_amount: exp.original_amount ?? exp.amount,
+        original_currency: exp.original_currency ?? exp.currency,
+        exchange_rate: exp.exchange_rate ?? 1.0,
+        category: exp.category,
+        note: `Generated from recurring ${exp.recurring_interval || "monthly"} bill`,
+        paid_by: exp.paid_by.id,
+        split_mode: exp.split_mode || "equal",
+        splits: exp.splits || [],
+      },
+      actor
+    );
   },
 
   // -------------------------------------------------------------
@@ -455,6 +641,10 @@ export const firestoreDb = {
       to_member_id: string;
       amount: number;
       currency?: string;
+      original_amount?: number;
+      original_currency?: string;
+      exchange_rate?: number;
+      payment_method?: string;
       note?: string;
     },
     actor: Member,
@@ -489,13 +679,51 @@ export const firestoreDb = {
       created_by_uid: actor.id,
     };
 
+    if (body.original_amount !== undefined) {
+      settlement.original_amount = Number(body.original_amount);
+    }
+    if (body.original_currency) {
+      settlement.original_currency = body.original_currency.toUpperCase();
+    }
+    if (body.exchange_rate !== undefined) {
+      settlement.exchange_rate = Number(body.exchange_rate);
+    }
+    if (body.payment_method) {
+      settlement.payment_method = body.payment_method;
+    }
+
     await setDoc(doc(db, "spaces", spaceId, "settlements", settleId), settlement);
+
+    await this.logActivity(spaceId, {
+      type: "settlement_created",
+      actor_name: actor.name,
+      actor_id: actor.id,
+      details: `${fromMem.name} paid ${toMem.name} ${settlement.currency} ${settlement.amount.toFixed(2)}${body.payment_method ? ` via ${body.payment_method}` : ""}`,
+      amount: settlement.amount,
+      currency: settlement.currency,
+    });
+
     return settlement;
   },
 
-  async deleteSettlement(spaceId: string, settlementId: string): Promise<{ ok: boolean }> {
+  async deleteSettlement(spaceId: string, settlementId: string, actor?: Member | null): Promise<{ ok: boolean }> {
     if (!db) throw new Error("Database not connected");
-    await deleteDoc(doc(db, "spaces", spaceId, "settlements", settlementId));
+    const setRef = doc(db, "spaces", spaceId, "settlements", settlementId);
+    const snap = await getDoc(setRef);
+    const data = snap.exists() ? (snap.data() as SettlementRecord) : null;
+    await deleteDoc(setRef);
+
+    if (actor && data) {
+      await this.logActivity(spaceId, {
+        type: "settlement_deleted",
+        actor_name: actor.name,
+        actor_id: actor.id,
+        details: `Deleted settlement of ${data.currency} ${data.amount.toFixed(2)} from ${data.from_member.name} to ${data.to_member.name}`,
+        amount: data.amount,
+        currency: data.currency,
+      });
+    }
+
     return { ok: true };
   },
 
@@ -737,6 +965,13 @@ export const firestoreDb = {
       memberUids: uniqueStrings([...(data.memberUids || []), user.id]),
       memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
       updatedAt: nowIso(),
+    });
+
+    await this.logActivity(invite.spaceId, {
+      type: "member_joined",
+      actor_name: user.name || "Member",
+      actor_id: user.id,
+      details: `${user.name || "A new member"} joined via invite link`,
     });
 
     return { space_id: invite.spaceId };
