@@ -15,14 +15,17 @@ SplitSpace is a high-performance, real-time group expense management and debt si
 
 ## ✨ Key Capabilities & Features
 
-- **⚡ Instant Group Spaces**: Create distinct shared spaces for trips, households, projects, or events.
-- **🔗 Shareable Invite Engine**: 1-click invite links with atomic Firestore membership synchronization.
-- **💡 Smart Debt Minimization Engine**: Greedy flow debt-simplification algorithm that reduces complex circular group debts down to the minimal number of direct settlement transactions.
-- **🌍 Multi-Currency Spend Lens**: Real-time live exchange rate converter supporting INR, USD, EUR, GBP, AED, JPY, CAD with 1-click live toggle.
-- **📊 4 Splitting Paradigms**: Equal, Exact, Percentage, and Custom Weight Shares.
+- **⚡ Instant Group Spaces & Guest Demo Mode**: Create shared spaces for trips, households, projects, or events. Anyone can try the application immediately in 1-click **Guest Demo Mode** without signing up.
+- **🚪 Direct App-First Experience**: Clean entry via a dedicated Auth/Welcome screen with Google 1-Click, Email/Password, and Demo space testing — marketing pages are on-demand rather than obstructing user entry.
+- **🔗 Shareable Invite Engine & Deep Linking**: 1-click shareable invite links (`/?join={token}`) with public metadata preview and atomic Firestore membership synchronization, plus URL space deep-linking (`/?space={spaceId}`).
+- **👥 Flexible Member Management**: Add group members with just their names without mandating email addresses (emails are optional).
+- **💡 Smart Debt Minimization Engine**: Exact integer-cent greedy flow algorithm that reduces complex circular group debts down to the minimal number of direct settlement transactions while preserving zero-sum balance equilibrium even when members depart.
+- **🔄 Live Real-Time Multi-Client Sync**: Subscribed to Firestore `onSnapshot` real-time listeners across spaces, expenses, and settlements. All participants see instant live ledger updates (<1 second) without page reloads.
+- **🌍 Multi-Currency Spend Lens**: Real-time live exchange rate converter supporting INR, USD, EUR, GBP, AED, JPY, CAD with 1-click live toggle and 10-minute caching.
+- **📊 4 Splitting Paradigms**: Equal (with subset member exclusions), Exact (with foreign currency cross-validation), Percentage, and Custom Weight Shares.
 - **🔒 Enterprise-Grade Security**: Granular Firebase Security Rules protecting spaces, expenses, settlements, and member privacy.
-- **📱 Touch & Mobile Optimized**: Ultra-responsive bento cards, gesture-driven slide-out drawers, tactile haptic feedback, and dynamic keyboard shortcuts.
-- **📄 Complete Ledger Export**: Instant CSV data export and print-ready PDF settlement summaries.
+- **📱 Touch & Mobile Optimized**: Responsive bento cards, gesture-driven slide-out drawers, tactile feedback, and dynamic keyboard shortcuts.
+- **📄 Complete Ledger Export**: Instant RFC 4180 CSV data export, 1-click Gmail statement composer, and print-ready Corporate PDF settlement summaries.
 
 ---
 
@@ -30,11 +33,11 @@ SplitSpace is a high-performance, real-time group expense management and debt si
 
 | Layer | Technology |
 |---|---|
-| **Framework** | [Next.js 16 (Turbopack, App Router)](https://nextjs.org/) |
+| **Framework** | [Next.js 16 (Turbopack, App Router, Static Export)](https://nextjs.org/) |
 | **UI Library** | [React 19](https://react.dev/), [SmoothUI](https://smoothui.dev/), [Tailwind CSS v4](https://tailwindcss.com/) |
 | **Motion & Micro-interactions** | [Framer Motion (`motion/react`)](https://motion.dev/) |
-| **Authentication** | [Firebase Auth](https://firebase.google.com/products/auth) (Google 1-Click + Email/Password + Email Verification) |
-| **Database** | [Google Cloud Firestore](https://firebase.google.com/products/firestore) (Atomic transactions, zero-cold-start) |
+| **Authentication** | [Firebase Auth](https://firebase.google.com/products/auth) (Google 1-Click + Email/Password + Verification) |
+| **Database** | [Google Cloud Firestore](https://firebase.google.com/products/firestore) (Atomic transactions, `onSnapshot` real-time listeners) |
 | **Hosting & CDN** | [Firebase Hosting](https://firebase.google.com/products/hosting) |
 
 ---
@@ -72,6 +75,37 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## 🧪 Testing & Verification
+
+### Run Accounting Engine Unit Tests
+
+```bash
+npm test --prefix frontend
+```
+Runs the 5-case engine suite in `scripts/test-engine.mjs` verifying penny-rounding elimination, transitive debt collapse, subset equal splits, and departed member balance equilibrium.
+
+### Run Automated Live Production QA
+
+```bash
+node scripts/qa-live-site.js
+```
+Validates the live production site `https://splitspace-9d28f.web.app` across all JS bundles, CSS stylesheets, manifests, deep links, and service worker assets.
+
+### Verify & Deploy Firestore Rules
+
+```bash
+# Verify active deployed rules
+node scripts/verify-rules.js
+
+# Test live invite generation and cleanup
+node scripts/test-live-invite.js
+
+# Deploy updated firestore.rules
+node scripts/deploy-rules.js
+```
+
+---
+
 ## 🚢 Deploying to Production
 
 ### Deploy Frontend (Firebase Hosting)
@@ -80,20 +114,21 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 cd frontend
 npm run build
 cd ..
-npx firebase-tools deploy --only hosting
+node scripts/deploy-hosting.js
 ```
 
-### Deploy Firestore Security Rules
+---
 
-```bash
-node scripts/deploy-rules.js
-```
+## ⚠️ Current Limitations & Roadmap
 
-Or verify active rules and tokens:
+While SplitSpace provides accurate real-time debt calculation and multi-currency tracking, the following capabilities are currently on the product roadmap:
 
-```bash
-node scripts/verify-rules.js
-```
+1. **Receipt / Bill Photo Attachments**: Direct camera capture and file upload for physical receipt photos (requires Firebase Storage integration).
+2. **Base-Currency-Only Settlements**: Direct settlement payments are recorded in the space's base currency. Multi-currency settlement logging (e.g., settling in cash USD for an INR space) is currently handled via manual conversion.
+3. **Recurring Expenses**: Automation for monthly repeating expenses (rent, utilities, subscription streaming services).
+4. **Audit Trail & Changelog**: While transactions update in real time, an itemized visual change history ("who edited/deleted an expense and when") is not yet surfaced.
+5. **Push Notifications (FCM)**: In-app real-time synchronization updates open tabs instantly, but background mobile/desktop push notifications for offline users are not yet active.
+6. **In-App Payment Gateway**: Settlements are bookkeeping entries ("I paid you"); direct 1-click UPI / Stripe / PayPal bank transfer initiation inside the modal is planned.
 
 ---
 
@@ -113,4 +148,3 @@ node scripts/verify-rules.js
 ## 📄 License
 
 MIT © [Ashish Labs](https://github.com/ashishlabs-23)
-
