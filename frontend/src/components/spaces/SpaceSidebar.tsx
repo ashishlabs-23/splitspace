@@ -80,6 +80,7 @@ export function SpaceSidebar({
           className="brand"
           style={{ cursor: "pointer" }}
           onClick={() => {
+            onCloseSidebar();
             if (onGoToLanding) {
               onGoToLanding();
             } else if (typeof window !== "undefined") {
