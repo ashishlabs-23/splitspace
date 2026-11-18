@@ -302,16 +302,30 @@ export function ExpenseModal({
         sumPct += Number(splitInputs[id]) || 0;
       });
       const roundedPct = +sumPct.toFixed(2);
-      const items = activeMemberIds.map((id) => {
+      const isBalanced = Math.abs(roundedPct - 100) < 0.01;
+
+      // Exact integer-cent allocation to eliminate dropped penny drift
+      const totalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
+      let allocatedCents = 0;
+      const rawCents = activeMemberIds.map((id) => {
         const pct = Number(splitInputs[id]) || 0;
+        const cents = isBalanced ? Math.floor((pct / 100) * totalCents) : Math.round((pct / 100) * totalCents);
+        allocatedCents += cents;
+        return { id, pct, cents };
+      });
+      const remainderCents = isBalanced ? totalCents - allocatedCents : 0;
+      const items = rawCents.map((item, idx) => {
+        const extra = idx < remainderCents ? 1 : 0;
+        const finalCents = item.cents + extra;
         return {
-          user_id: id,
-          amount: +((pct / 100) * calculatedTotalInSpaceCurrency).toFixed(2),
-          split_value: pct,
+          user_id: item.id,
+          amount: +(finalCents / 100).toFixed(2),
+          split_value: item.pct,
         };
       });
+
       return {
-        isBalanced: Math.abs(roundedPct - 100) < 0.01,
+        isBalanced,
         sum: roundedPct,
         target: 100,
         items,
@@ -323,12 +337,24 @@ export function ExpenseModal({
       activeMemberIds.forEach((id) => {
         totalShares += Math.max(1, Number(splitInputs[id]) || 1);
       });
-      const items = activeMemberIds.map((id) => {
+
+      // Exact integer-cent allocation according to integer share weights
+      const totalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
+      let allocatedCents = 0;
+      const rawCents = activeMemberIds.map((id) => {
         const shares = Math.max(1, Number(splitInputs[id]) || 1);
+        const cents = totalShares > 0 ? Math.floor((shares / totalShares) * totalCents) : 0;
+        allocatedCents += cents;
+        return { id, shares, cents };
+      });
+      const remainderCents = totalShares > 0 ? totalCents - allocatedCents : 0;
+      const items = rawCents.map((item, idx) => {
+        const extra = idx < remainderCents ? 1 : 0;
+        const finalCents = item.cents + extra;
         return {
-          user_id: id,
-          amount: +((shares / totalShares) * calculatedTotalInSpaceCurrency).toFixed(2),
-          split_value: shares,
+          user_id: item.id,
+          amount: +(finalCents / 100).toFixed(2),
+          split_value: item.shares,
         };
       });
       return { isBalanced: totalShares > 0, sum: totalShares, target: totalShares, items };

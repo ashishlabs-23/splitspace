@@ -11,12 +11,14 @@ import {
   FileText,
   ArrowUpRight,
   Sparkles,
+  Download,
 } from "lucide-react";
 import {
   printSpacePdfStatement,
   openGmailWeb,
   sendStatementEmail,
   generateMemberEmailStatement,
+  exportSpaceToCsv,
 } from "@/lib/export";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -344,6 +346,102 @@ export function ExportModal({
               }}
             >
               <Printer size={14} /> Print / Save PDF
+            </div>
+          </div>
+
+          {/* Card 3: Instant RFC 4180 CSV Export */}
+          <div
+            onClick={() => {
+              exportSpaceToCsv(space);
+            }}
+            style={{
+              background: "rgba(255, 255, 255, 0.92)",
+              border: "1.5px solid #3b82f6",
+              borderRadius: 18,
+              padding: "16px 16px 14px",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 4px 16px rgba(59, 130, 246, 0.08)",
+              transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+            className="hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "#eff6ff",
+                  color: "#3b82f6",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <Download size={15} />
+              </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#3b82f6",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  padding: "2px 7px",
+                  borderRadius: 6,
+                }}
+              >
+                RFC 4180 CSV
+              </span>
+            </div>
+
+            <strong
+              style={{
+                fontSize: 15.5,
+                fontWeight: 700,
+                color: "#1e2029",
+                marginBottom: 4,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Export Spreadsheet CSV
+            </strong>
+
+            <p
+              style={{
+                fontSize: 12,
+                color: "#6b7280",
+                lineHeight: 1.45,
+                margin: 0,
+                flex: 1,
+              }}
+            >
+              Sanitized CSV data export ready for Excel, Google Sheets, or corporate ERP.
+            </p>
+
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 10,
+                borderTop: "1px solid rgba(59, 130, 246, 0.15)",
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: "#3b82f6",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Download size={14} /> Download CSV
             </div>
           </div>
         </div>

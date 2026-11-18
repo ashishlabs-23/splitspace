@@ -332,10 +332,11 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get("view");
     const spaceParam = params.get("space");
+    const joinParam = params.get("join");
 
-    // Only switch to dashboard if explicitly requested via ?view=dashboard or ?space=... with an active user
-    // Otherwise, the landing page is always the main page
-    if (viewParam === "dashboard" || (spaceParam && user)) {
+    // Switch to dashboard if explicitly requested via ?view=dashboard or ?space=... with an active user,
+    // or if an authenticated user opens an invite link (?join=... or joinToken) to allow auto-joining
+    if (viewParam === "dashboard" || (spaceParam && user) || ((joinParam || joinToken) && user)) {
       setViewMode("dashboard");
       window.history.replaceState({ view: "dashboard" }, "");
     } else {
@@ -456,6 +457,10 @@ export default function Home() {
         onLogout={async () => {
           await api.logout();
           setUser(null);
+          setSpaces([]);
+          setActiveId("");
+          setSummary(null);
+          setActivityCount(0);
           goToLanding();
         }}
       />
@@ -480,6 +485,10 @@ export default function Home() {
         onLogout={async () => {
           await api.logout();
           setUser(null);
+          setSpaces([]);
+          setActiveId("");
+          setSummary(null);
+          setActivityCount(0);
           goToLanding();
         }}
       />

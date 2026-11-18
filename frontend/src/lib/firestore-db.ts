@@ -931,40 +931,44 @@ export const firestoreDb = {
     }
 
     const spaceRef = doc(db, "spaces", invite.spaceId);
-    const spaceSnap = await getDoc(spaceRef);
-    if (!spaceSnap.exists()) throw new Error("Space no longer exists");
 
-    const data = spaceSnap.data();
-    const normalizedEmail = normalizeEmail(user.email);
-    const existingIndex = (data.members || []).findIndex((member: Member) =>
-      memberMatchesUser(member, user.id, user.email) || normalizeEmail(member.email) === normalizedEmail,
-    );
+    // Atomic transaction prevents lost updates when multiple users join concurrently
+    await runTransaction(db, async (transaction) => {
+      const spaceSnap = await transaction.get(spaceRef);
+      if (!spaceSnap.exists()) throw new Error("Space no longer exists");
 
-    const members = [...(data.members || [])] as Member[];
-    if (existingIndex >= 0) {
-      members[existingIndex] = {
-        ...members[existingIndex],
-        name: fallbackName(user.name, normalizedEmail),
-        email: normalizedEmail,
-        avatar: user.avatar || members[existingIndex].avatar || null,
-        userUid: user.id,
-      };
-    } else {
-      members.push({
-        id: generateId(),
-        name: fallbackName(user.name, normalizedEmail),
-        email: normalizedEmail,
-        role: "member",
-        avatar: user.avatar || null,
-        userUid: user.id,
+      const data = spaceSnap.data();
+      const normalizedEmail = normalizeEmail(user.email);
+      const existingIndex = (data.members || []).findIndex((member: Member) =>
+        memberMatchesUser(member, user.id, user.email) || normalizeEmail(member.email) === normalizedEmail,
+      );
+
+      const members = [...(data.members || [])] as Member[];
+      if (existingIndex >= 0) {
+        members[existingIndex] = {
+          ...members[existingIndex],
+          name: fallbackName(user.name, normalizedEmail),
+          email: normalizedEmail,
+          avatar: user.avatar || members[existingIndex].avatar || null,
+          userUid: user.id,
+        };
+      } else {
+        members.push({
+          id: generateId(),
+          name: fallbackName(user.name, normalizedEmail),
+          email: normalizedEmail,
+          role: "member",
+          avatar: user.avatar || null,
+          userUid: user.id,
+        });
+      }
+
+      transaction.update(spaceRef, {
+        members,
+        memberUids: uniqueStrings([...(data.memberUids || []), user.id]),
+        memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
+        updatedAt: nowIso(),
       });
-    }
-
-    await updateDoc(spaceRef, {
-      members,
-      memberUids: uniqueStrings([...(data.memberUids || []), user.id]),
-      memberEmails: uniqueStrings([...(data.memberEmails || []), normalizedEmail]),
-      updatedAt: nowIso(),
     });
 
     await this.logActivity(invite.spaceId, {

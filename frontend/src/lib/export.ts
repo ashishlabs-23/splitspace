@@ -12,6 +12,30 @@ function escapeHtml(str: string | null | undefined): string {
 }
 
 /**
+ * Escapes Markdown pipe delimiters and linebreaks to prevent table column breakout
+ */
+export function sanitizeMarkdownCell(value: string | null | undefined): string {
+  if (!value) return "";
+  return String(value)
+    .replace(/\|/g, "\\|")
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+}
+
+/**
+ * Neutralizes CSV / Spreadsheet Formula Injection (DDE execution attacks)
+ * Disallows or escapes unquoted formulas starting with =, +, -, @, \t, \r
+ */
+export function sanitizeCsvField(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '""';
+  const str = String(value).trim();
+  if (/^[=\+\-@\t\r]/.test(str)) {
+    return `"'${str.replace(/"/g, '""')}"`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
  * Generate formatted executive plain text statement suitable for email / messaging
  */
 export function generateMemberEmailStatement(
@@ -72,8 +96,10 @@ export function generateMemberEmailStatement(
       month: "short",
       year: "numeric",
     });
-    const catLabel = e.category.charAt(0).toUpperCase() + e.category.slice(1);
-    body += `| ${expDate} | ${catLabel} | ${e.title} | ${e.paid_by.name} | ${formatMoney(e.amount, space.currency)} |\n`;
+    const catLabel = sanitizeMarkdownCell(e.category.charAt(0).toUpperCase() + e.category.slice(1));
+    const title = sanitizeMarkdownCell(e.title);
+    const payerName = sanitizeMarkdownCell(e.paid_by.name);
+    body += `| ${expDate} | ${catLabel} | ${title} | ${payerName} | ${formatMoney(e.amount, space.currency)} |\n`;
   });
   body += `\n`;
 
@@ -532,4 +558,50 @@ export function printSpacePdfStatement(space: Space, summary: Summary | null, us
   printWindow.document.open();
   printWindow.document.write(html);
   printWindow.document.close();
+}
+
+/**
+ * Export Space Ledger to RFC 4180 CSV with Formula Injection (DDE) Neutralization
+ */
+export function exportSpaceToCsv(space: Space): void {
+  const headers = [
+    "Date",
+    "Category",
+    "Description",
+    "Paid By",
+    "Amount",
+    "Currency",
+    "Original Amount",
+    "Original Currency",
+    "Exchange Rate",
+    "Notes",
+  ];
+
+  const rows = space.expenses.map((e) => {
+    const expDate = new Date(e.created_at).toISOString().split("T")[0];
+    return [
+      sanitizeCsvField(expDate),
+      sanitizeCsvField(e.category),
+      sanitizeCsvField(e.title),
+      sanitizeCsvField(e.paid_by.name),
+      sanitizeCsvField(e.amount.toFixed(2)),
+      sanitizeCsvField(space.currency),
+      sanitizeCsvField(e.original_amount != null ? e.original_amount.toFixed(2) : e.amount.toFixed(2)),
+      sanitizeCsvField(e.original_currency || space.currency),
+      sanitizeCsvField(e.exchange_rate != null ? e.exchange_rate.toString() : "1.0"),
+      sanitizeCsvField(e.note || ""),
+    ].join(",");
+  });
+
+  const csvContent = [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  const cleanTitle = (space.title || "splitspace").toLowerCase().replace(/[^a-z0-9]/g, "-");
+  link.setAttribute("download", `${cleanTitle}-ledger.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

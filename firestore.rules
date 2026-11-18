@@ -184,7 +184,9 @@ service cloud.firestore {
 
       match /settlements/{settlementId} {
         allow read: if isSpaceMember(spaceId);
-        allow create: if isSpaceMember(spaceId) && validSettlementPayload(settlementId);
+        allow create: if isSpaceMember(spaceId)
+          && validSettlementPayload(settlementId)
+          && request.resource.data.created_by_uid == request.auth.uid;
         allow update: if false;
         allow delete: if isSpaceMember(spaceId)
           && (isSpaceOwner(spaceId) || (resourceHasCreator() && resource.data.created_by_uid == request.auth.uid));
@@ -192,7 +194,8 @@ service cloud.firestore {
 
       match /activity/{activityId} {
         allow read: if isSpaceMember(spaceId);
-        allow create: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId)
+          && request.resource.data.actor_id == request.auth.uid;
         allow update, delete: if false;
       }
     }
