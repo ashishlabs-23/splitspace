@@ -29,6 +29,7 @@ export function SpaceSidebar({
   onDeleteSpace,
   onSignOut,
   onExport,
+  onGoToLanding,
 }: {
   spaces: Space[];
   active?: Space;
@@ -40,6 +41,7 @@ export function SpaceSidebar({
   onDeleteSpace: (s: Space) => void;
   onSignOut?: () => void;
   onExport?: () => void;
+  onGoToLanding?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -78,9 +80,10 @@ export function SpaceSidebar({
           className="brand"
           style={{ cursor: "pointer" }}
           onClick={() => {
-            if (typeof window !== "undefined") {
-              window.history.pushState({ view: "landing" }, "");
-              window.dispatchEvent(new PopStateEvent("popstate", { state: { view: "landing" } }));
+            if (onGoToLanding) {
+              onGoToLanding();
+            } else if (typeof window !== "undefined") {
+              window.location.href = "/";
             }
           }}
           title="Back to Landing Page"

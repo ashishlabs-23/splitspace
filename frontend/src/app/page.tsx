@@ -570,6 +570,7 @@ export default function Home() {
         }}
         onSignOut={() => setSignOutSheetOpen(true)}
         onExport={() => setModal("export")}
+        onGoToLanding={goToLanding}
       />
 
       {/* ── Mobile Top Bar ── */}
@@ -973,7 +974,7 @@ export default function Home() {
                   setSignOutSheetOpen(false);
                   try {
                     await api.logout();
-                  } catch {}
+                  } catch { }
                   location.reload();
                 }}
                 style={{
