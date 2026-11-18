@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/useAuth";
 import { useShortcuts } from "@/lib/useShortcuts";
 import { formatMoney } from "@/lib/currencies";
 import { LandingPage } from "@/components/landing/LandingPage";
-import { AuthScreen } from "@/components/auth/AuthScreen";
 
 const DEMO_SPACE: Space = {
   id: "demo-space-goa",
@@ -208,16 +207,16 @@ export default function Home() {
     }
   }, []);
 
-  // Update URL search query when active space changes
+  // Update URL search query when active space changes ONLY while in dashboard view
   useEffect(() => {
-    if (typeof window !== "undefined" && activeId && !joinToken && !isDemo) {
+    if (typeof window !== "undefined" && viewMode === "dashboard" && activeId && !joinToken && !isDemo) {
       const url = new URL(window.location.href);
       if (url.searchParams.get("space") !== activeId) {
         url.searchParams.set("space", activeId);
-        window.history.replaceState({ space: activeId }, "", url.toString());
+        window.history.replaceState({ view: "dashboard", space: activeId }, "", url.toString());
       }
     }
-  }, [activeId, joinToken, isDemo]);
+  }, [activeId, joinToken, isDemo, viewMode]);
 
   // Real-time active space sync with Firestore onSnapshot
   useEffect(() => {
@@ -334,20 +333,20 @@ export default function Home() {
     const viewParam = params.get("view");
     const spaceParam = params.get("space");
 
-    // If explicit ?space or ?view=dashboard is provided in URL, switch to dashboard
-    if (spaceParam || viewParam === "dashboard") {
+    // Only switch to dashboard if explicitly requested via ?view=dashboard or ?space=... with an active user
+    // Otherwise, the landing page is always the main page
+    if (viewParam === "dashboard" || (spaceParam && user)) {
       setViewMode("dashboard");
       window.history.replaceState({ view: "dashboard" }, "");
     } else {
-      // Landing page is the first page shown when opening the website
       setViewMode("landing");
       window.history.replaceState({ view: "landing" }, "");
     }
 
     const handlePopState = (e: PopStateEvent) => {
       const view = e.state?.view;
-      if (view === "landing" || view === "dashboard") {
-        setViewMode(view);
+      if (view === "dashboard") {
+        setViewMode("dashboard");
       } else {
         setViewMode("landing");
         window.history.replaceState({ view: "landing" }, "");
@@ -361,21 +360,19 @@ export default function Home() {
   const goToDashboard = useCallback(() => {
     setViewMode("dashboard");
     if (typeof window !== "undefined") {
-      const curr = window.history.state?.view;
-      if (curr !== "dashboard") {
-        // Ensure landing is in the stack first so Back returns to it
-        if (curr !== "landing") {
-          window.history.replaceState({ view: "landing" }, "");
-        }
-        window.history.pushState({ view: "dashboard" }, "");
-      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "dashboard");
+      window.history.pushState({ view: "dashboard" }, "", url.toString());
     }
   }, []);
 
   const goToLanding = useCallback(() => {
     setViewMode("landing");
-    if (typeof window !== "undefined" && window.history.state?.view !== "landing") {
-      window.history.pushState({ view: "landing" }, "");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("space");
+      url.searchParams.delete("view");
+      window.history.pushState({ view: "landing" }, "", url.pathname + (url.hash || ""));
     }
   }, []);
 
@@ -397,11 +394,12 @@ export default function Home() {
     );
   }
 
-  // Not signed in and not viewing landing page -> show AuthScreen directly!
-  if (!authLoading && !user && !isDemo && viewMode !== "landing") {
+  // The Landing Page is the main page of the website for all visitors & whenever viewMode is landing
+  if (!authLoading && (viewMode === "landing" || (!user && !isDemo))) {
     return (
-      <AuthScreen
+      <LandingPage
         joinToken={joinToken}
+        currentUser={user}
         onLoggedIn={async (u: Member) => {
           setUser(u);
           // If there is a pending invite token, join immediately on login
@@ -437,52 +435,8 @@ export default function Home() {
           setSpaces([DEMO_SPACE]);
           setActiveId(DEMO_SPACE.id);
           setSummary(DEMO_SUMMARY);
-          setViewMode("dashboard");
+          goToDashboard();
           setLoading(false);
-        }}
-        onViewLanding={() => {
-          setViewMode("landing");
-        }}
-      />
-    );
-  }
-
-  // Explicitly viewing promotional landing page
-  if (!authLoading && viewMode === "landing") {
-    return (
-      <LandingPage
-        joinToken={joinToken}
-        currentUser={user}
-        onLoggedIn={async (u: Member) => {
-          setUser(u);
-          // If there is a pending invite token, join immediately on login
-          if (joinToken && !joiningRef.current) {
-            joiningRef.current = true;
-            try {
-              // Import firestoreDb directly to pass user explicitly, bypassing getCurrentUser() timing
-              const { firestoreDb } = await import("@/lib/firestore-db");
-              const res = await firestoreDb.joinInvite(joinToken, u);
-              toast.success("Joined space successfully!");
-              setJoinToken("");
-              window.history.replaceState({}, document.title, "/");
-              goToDashboard();
-              const sps = await api.spaces();
-              setSpaces(sps);
-              setActiveId(res.space_id);
-            } catch (err: any) {
-              console.error("Failed to join space after login:", err);
-              toast.error(err.message || "Failed to join space");
-              setJoinToken("");
-              window.history.replaceState({}, document.title, "/");
-              goToDashboard();
-              refresh();
-            } finally {
-              joiningRef.current = false;
-            }
-          } else {
-            goToDashboard();
-            refresh();
-          }
         }}
         onGoToDashboard={goToDashboard}
       />

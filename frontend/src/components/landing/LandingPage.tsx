@@ -110,11 +110,13 @@ export function LandingPage({
   onLoggedIn,
   currentUser,
   onGoToDashboard,
+  onTryDemo,
 }: {
   joinToken?: string;
   onLoggedIn?: (user: Member) => void;
   currentUser?: Member | null;
   onGoToDashboard?: () => void;
+  onTryDemo?: () => void;
 }) {
   const [authSheetOpen, setAuthSheetOpen] = useState(false);
 
@@ -834,6 +836,31 @@ export function LandingPage({
             >
               {onGoToDashboard ? "Manage Spaces" : "Sign In"}
             </motion.button>
+
+            {onTryDemo && !currentUser && (
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={onTryDemo}
+                style={{
+                  background: "rgba(224, 86, 46, 0.08)",
+                  color: "#e0562e",
+                  border: "1.5px solid rgba(224, 86, 46, 0.25)",
+                  borderRadius: 9999,
+                  padding: "14px 24px",
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Zap size={15} />
+                <span>Try Demo Space</span>
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Trust Highlights */}
@@ -2777,6 +2804,32 @@ export function LandingPage({
                   </button>
                 )}
               </div>
+
+              {onTryDemo && (
+                <div style={{ textAlign: "center", marginTop: 12, paddingTop: 10, borderTop: "1px dashed #e5e7eb" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthSheetOpen(false);
+                      onTryDemo();
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#e0562e",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <Zap size={13} />
+                    <span>Or Explore Instantly in Guest Demo Mode →</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </SheetPanel>
