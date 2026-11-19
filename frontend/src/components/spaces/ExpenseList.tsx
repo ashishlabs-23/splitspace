@@ -97,8 +97,8 @@ export function ExpenseList({
                       <Icon size={18} />
                     </div>
 
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 4, columnGap: 6, minWidth: 0 }}>
                         <strong
                           style={{
                             fontSize: 14,
@@ -106,6 +106,7 @@ export function ExpenseList({
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
+                            maxWidth: "100%",
                           }}
                         >
                           {e.title}

@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "You are a Principal Financial Software Architect and Security Auditor reviewing pull requests for SplitSpace. Be precise, pragmatic, and unyielding on financial invariants, double-entry ledger integrity, and security rule compliance."
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+  
+  collapse_walkthrough: false
+
+  auto_title:
+    enabled: true
+    prefix: "[SplitSpace]"
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.next/**"
+    - "!**/out/**"
+    - "!frontend/package-lock.json"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.ico"
+
+  tools:
+    ast-grep:
+      enabled: true
+    shellcheck:
+      enabled: true
+
+  prompt_instructions: |
+    You are reviewing code for SplitSpace, a group expense-sharing and debt-minimization platform.
+    You must strictly evaluate code against the standards in `docs/tech-rules.md`:
+
+    1. FINANCIAL PRECISION & INTEGER CENTS INVARIANT (CRITICAL):
+       - FLAG any use of IEEE 754 floating-point arithmetic (`+`, `-`, `*`, `/`) directly on currency amounts.
+       - Verify that currency inputs are converted to integer cents via `Math.round(Number(amount) * 100)` immediately.
+       - In any split calculation across N members, verify that modulus remainder pennies (`remainderCents = totalCents % N`) are deterministically allocated so that sum(splits) == totalCents EXACTLY.
+       - Ensure the transitive debt engine maintains conservation of money (sum of net balances == 0).
+
+    2. FIRESTORE SECURITY & AUTHORIZATION RULES:
+       - Ensure all Firestore subcollection reads/writes verify that the user is a verified space member (`memberUids`).
+       - FLAG any code that attempts to update immutable space fields (`createdBy`, `createdAt`, `id`).
+       - Ensure settlements are never modified in-place (they are append/delete only).
+       - Ensure `created_by_uid` matches `auth.uid` on expense and settlement creation.
+
+    3. FORMULA INJECTION & XSS DEFENSE (DDE / SPREADSHEET VULNERABILITIES):
+       - In `frontend/src/lib/export.ts` or any export generator, ensure all user-controlled strings (titles, notes, member names, categories) are sanitized against CSV Formula Injection (DDE) by neutralizing leading `=`, `+`, `-`, `@`, `\t`, and `\r`.
+       - Markdown table cell generators must escape pipe `|` characters and line breaks.
+
+    4. REACT 19 & NEXT.JS APP ROUTER CONVENTIONS:
+       - Stateful components and hooks must contain the `"use client";` directive at line 1.
+       - Every Firestore `onSnapshot` listener must have an explicit cleanup return in `useEffect` to prevent memory leaks and zombie subscriptions.
+       - Imports from motion must use `motion/react` (not legacy `framer-motion`).
+
+    5. CODE HYGIENE:
+       - No `any` type usage in financial calculation functions.
+       - Unit tests in `scripts/test-engine.mjs` must be updated if financial calculation logic is modified.
+
+chat:
+  auto_reply: true

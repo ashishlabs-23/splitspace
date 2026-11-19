@@ -26,4 +26,5 @@ Thumbs.db
 .vscode/
 .agents/
 .firebase/
+*.tsbuildinfo
 

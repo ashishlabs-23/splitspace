@@ -154,7 +154,7 @@ export function TiltCard({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isEffectActive || !cardRef.current) {
+      if (e.pointerType === "touch" || !isEffectActive || !cardRef.current) {
         onPointerMove?.(e);
         return;
       }

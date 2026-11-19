@@ -137,8 +137,8 @@ export function SpaceStats({
         </div>
 
         {/* Currency Switcher Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", marginRight: 2 }}>Convert to:</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", marginRight: 2, flexShrink: 0 }}>Convert to:</span>
           {["INR", "USD", "EUR", "GBP", "AED", "JPY", "CAD"].map((c) => {
             const isActive = targetCurrency.toUpperCase() === c;
             return (

@@ -296,7 +296,7 @@ export function Overlay({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "16px",
+              padding: "clamp(6px, 2.5vw, 16px)",
               pointerEvents: "none",   /* let backdrop handle clicks */
               boxSizing: "border-box",
               width: "100vw",

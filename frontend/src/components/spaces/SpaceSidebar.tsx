@@ -72,8 +72,25 @@ export function SpaceSidebar({
     }
   };
 
+  // Close sidebar on Escape key when open on mobile
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseSidebar();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarOpen, onCloseSidebar]);
+
   return (
     <>
+      {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={onCloseSidebar}
+          aria-label="Close sidebar navigation overlay"
+        />
+      )}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{ paddingBottom: 28 }}>
         {/* Brand header */}
         <div

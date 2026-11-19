@@ -496,12 +496,34 @@ export default function Home() {
   }
 
   return (
-    <div className="app">
-      {isDemo && (
+    <div className="app-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", width: "100%" }}>
+      {isOffline && (
         <div
           style={{
             position: "sticky",
             top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            background: "#b45309",
+            color: "#fff",
+            padding: "7px 14px",
+            fontSize: 12,
+            textAlign: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
+          <WifiOff size={14} /> You are currently offline. Local cache active.
+        </div>
+      )}
+      {isDemo && (
+        <div
+          style={{
+            position: "sticky",
+            top: isOffline ? 32 : 0,
             left: 0,
             right: 0,
             zIndex: 90,
@@ -514,6 +536,8 @@ export default function Home() {
             alignItems: "center",
             justifyContent: "space-between",
             boxShadow: "0 2px 10px rgba(224, 86, 46, 0.25)",
+            flexWrap: "wrap",
+            gap: 8,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -541,28 +565,8 @@ export default function Home() {
           </button>
         </div>
       )}
-      {isOffline && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 100,
-            background: "#b45309",
-            color: "#fff",
-            padding: "6px 12px",
-            fontSize: 12,
-            textAlign: "center",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-          }}
-        >
-          <WifiOff size={14} /> You are currently offline. Local cache active.
-        </div>
-      )}
+
+      <div className="app">
 
       {/* ── Sidebar ── */}
       <SpaceSidebar
@@ -1007,6 +1011,7 @@ export default function Home() {
           </div>
         </SheetPanel>
       </Sheet>
+    </div>
     </div>
   );
 }
