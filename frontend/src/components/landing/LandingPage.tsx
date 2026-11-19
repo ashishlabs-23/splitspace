@@ -787,8 +787,9 @@ export function LandingPage({
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => {
-                if (onGoToDashboard) onGoToDashboard();
-                else {
+                if (currentUser && onGoToDashboard) {
+                  onGoToDashboard();
+                } else {
                   setMode("register");
                   setAuthSheetOpen(true);
                 }
@@ -808,7 +809,7 @@ export function LandingPage({
                 boxShadow: "0 10px 25px rgba(24, 24, 27, 0.2)",
               }}
             >
-              {onGoToDashboard ? "Open Your Dashboard →" : "Create Free Account →"}
+              {currentUser ? "Open Your Dashboard →" : "Create Free Account →"}
             </motion.button>
 
             <motion.button
@@ -816,8 +817,9 @@ export function LandingPage({
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => {
-                if (onGoToDashboard) onGoToDashboard();
-                else {
+                if (currentUser && onGoToDashboard) {
+                  onGoToDashboard();
+                } else {
                   setMode("login");
                   setAuthSheetOpen(true);
                 }
@@ -834,7 +836,7 @@ export function LandingPage({
                 boxShadow: "0 4px 14px rgba(0, 0, 0, 0.04)",
               }}
             >
-              {onGoToDashboard ? "Manage Spaces" : "Sign In"}
+              {currentUser ? "Manage Spaces" : "Sign In"}
             </motion.button>
 
             {onTryDemo && !currentUser && (
@@ -2372,8 +2374,9 @@ export function LandingPage({
               whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => {
-                if (onGoToDashboard) onGoToDashboard();
-                else {
+                if (currentUser && onGoToDashboard) {
+                  onGoToDashboard();
+                } else {
                   setMode("login");
                   setAuthSheetOpen(true);
                 }
@@ -2389,7 +2392,7 @@ export function LandingPage({
                 cursor: "pointer",
               }}
             >
-              Sign In
+              {currentUser ? "Manage Spaces" : "Sign In"}
             </motion.button>
 
             <motion.button
@@ -2397,8 +2400,9 @@ export function LandingPage({
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => {
-                if (onGoToDashboard) onGoToDashboard();
-                else {
+                if (currentUser && onGoToDashboard) {
+                  onGoToDashboard();
+                } else {
                   setMode("register");
                   setAuthSheetOpen(true);
                 }
@@ -2418,7 +2422,7 @@ export function LandingPage({
                 gap: 8,
               }}
             >
-              {onGoToDashboard ? "Back to Dashboard" : "Create Free Account →"}
+              {currentUser ? "Back to Dashboard" : "Create Free Account →"}
             </motion.button>
           </div>
         </motion.div>

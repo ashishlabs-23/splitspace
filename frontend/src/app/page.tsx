@@ -334,14 +334,22 @@ export default function Home() {
     const spaceParam = params.get("space");
     const joinParam = params.get("join");
 
-    // Switch to dashboard if explicitly requested via ?view=dashboard or ?space=... with an active user,
-    // or if an authenticated user opens an invite link (?join=... or joinToken) to allow auto-joining
-    if (viewParam === "dashboard" || (spaceParam && user) || ((joinParam || joinToken) && user)) {
+    // The Landing Page is the primary entry point for all users when visiting or opening the webapp.
+    // Only switch to dashboard if explicitly requested via ?view=dashboard or if an authenticated user opens an invite link (?join=... or joinToken).
+    if (viewParam === "dashboard" || ((joinParam || joinToken) && user)) {
       setViewMode("dashboard");
-      window.history.replaceState({ view: "dashboard" }, "");
+      window.history.replaceState({ view: "dashboard" }, "", window.location.href);
     } else {
       setViewMode("landing");
-      window.history.replaceState({ view: "landing" }, "");
+      // Clean up any stale query parameters on cold start so reopening the app always presents the Landing Page first
+      if (typeof window !== "undefined" && (window.location.search.includes("space=") || window.location.search.includes("view="))) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("space");
+        cleanUrl.searchParams.delete("view");
+        window.history.replaceState({ view: "landing" }, "", cleanUrl.pathname + (cleanUrl.hash || ""));
+      } else {
+        window.history.replaceState({ view: "landing" }, "", window.location.href);
+      }
     }
 
     const handlePopState = (e: PopStateEvent) => {
@@ -351,7 +359,7 @@ export default function Home() {
       const viewParam = url.searchParams.get("view");
       const targetView = e.state?.view || viewParam;
 
-      if (targetView === "dashboard" || spaceParam) {
+      if (targetView === "dashboard") {
         setViewMode("dashboard");
         if (spaceParam) {
           setActiveId(spaceParam);
