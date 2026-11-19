@@ -12,6 +12,8 @@ function computeSummary(space, expenses, settlements) {
       member: m,
       total_paid_cents: 0,
       total_owed_cents: 0,
+      settled_paid_cents: 0,
+      settled_received_cents: 0,
     };
   });
 
@@ -27,6 +29,8 @@ function computeSummary(space, expenses, settlements) {
         },
         total_paid_cents: 0,
         total_owed_cents: 0,
+        settled_paid_cents: 0,
+        settled_received_cents: 0,
       };
     }
   };
@@ -65,15 +69,15 @@ function computeSummary(space, expenses, settlements) {
     ensureMember(s.from_member.id, s.from_member);
     ensureMember(s.to_member.id, s.to_member);
     if (memberTotals[s.from_member.id]) {
-      memberTotals[s.from_member.id].total_paid_cents += settleCents;
+      memberTotals[s.from_member.id].settled_paid_cents += settleCents;
     }
     if (memberTotals[s.to_member.id]) {
-      memberTotals[s.to_member.id].total_owed_cents += settleCents;
+      memberTotals[s.to_member.id].settled_received_cents += settleCents;
     }
   });
 
   const memberBalances = Object.values(memberTotals).map((mt) => {
-    const netCents = mt.total_paid_cents - mt.total_owed_cents;
+    const netCents = (mt.total_paid_cents - mt.total_owed_cents) + (mt.settled_paid_cents - mt.settled_received_cents);
     return {
       member: mt.member,
       total_paid: mt.total_paid_cents / 100,

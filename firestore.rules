@@ -29,6 +29,8 @@ service cloud.firestore {
     function baseSpaceFieldsUnchanged() {
       return (!resource.data.keys().hasAny(['id']) || request.resource.data.id == resource.data.id)
         && request.resource.data.createdBy == resource.data.createdBy
+        && (!resource.data.keys().hasAny(['ownerUid']) || request.resource.data.ownerUid == resource.data.ownerUid)
+        && (!resource.data.keys().hasAny(['currency']) || request.resource.data.currency == resource.data.currency)
         && (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt);
     }
 
@@ -48,6 +50,13 @@ service cloud.firestore {
       return isSpaceOwner(spaceId)
         && baseSpaceFieldsUnchanged()
         && validSpaceSizes();
+    }
+
+    function memberManagedSpaceUpdate() {
+      return isSpaceMember(spaceId)
+        && baseSpaceFieldsUnchanged()
+        && validSpaceSizes()
+        && request.resource.data.memberUids == resource.data.memberUids;
     }
 
     function selfJoinSpaceUpdate() {
@@ -164,7 +173,7 @@ service cloud.firestore {
         && authEmail() != ""
         && request.resource.data.memberEmails[0] == authEmail()
         && request.resource.data.members.size() == 1;
-      allow update: if ownerManagedSpaceUpdate() || selfJoinSpaceUpdate() || selfLeaveSpaceUpdate();
+      allow update: if ownerManagedSpaceUpdate() || memberManagedSpaceUpdate() || selfJoinSpaceUpdate() || selfLeaveSpaceUpdate();
       allow delete: if isSignedIn() && (
         (resource.data.keys().hasAny(['ownerUid']) && resource.data.ownerUid == request.auth.uid) ||
         (resource.data.keys().hasAny(['createdBy']) && resource.data.createdBy == request.auth.uid)
@@ -201,7 +210,8 @@ service cloud.firestore {
     }
 
     match /invites/{token} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if false;
       allow create: if isSignedIn()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.spaceId is string

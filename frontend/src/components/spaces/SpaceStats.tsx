@@ -57,7 +57,7 @@ export function SpaceStats({
     ? convertAmount(Math.abs(yourBalance), space.currency, targetCurrency)
     : Math.abs(yourBalance);
 
-  const exchangeRate = estimateExchangeRate(targetCurrency, space.currency);
+  const rateFromBaseToTarget = estimateExchangeRate(space.currency, targetCurrency);
 
   return (
     <div style={{ position: "relative", zIndex: 10, width: "100%", marginBottom: 20 }}>
@@ -113,7 +113,7 @@ export function SpaceStats({
             {isConverted && (
               <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block", boxShadow: "0 0 6px #10b981" }} />
-                <span>Live market FX: 1 {targetCurrency} ≈ {exchangeRate} {space.currency}</span>
+                <span>Live market FX: 1 {space.currency} ≈ {rateFromBaseToTarget} {targetCurrency}</span>
                 <button
                   type="button"
                   onClick={handleRefreshRates}

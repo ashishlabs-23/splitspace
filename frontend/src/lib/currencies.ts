@@ -107,6 +107,13 @@ if (typeof window !== "undefined") {
   }, 1000);
 }
 
+function roundFxRate(val: number): number {
+  if (val <= 0 || !Number.isFinite(val)) return 1.0;
+  if (val >= 1) return +val.toFixed(4);
+  if (val >= 0.01) return +val.toFixed(6);
+  return +val.toFixed(8);
+}
+
 /**
  * Calculates the exchange rate between two currencies using live rates where available
  */
@@ -120,7 +127,7 @@ export function estimateExchangeRate(fromCurrency: string, toCurrency: string): 
 
   // 1. Direct lookup from live cache if base matches
   if (liveRatesCache[from] && liveRatesCache[from][to]) {
-    return +(liveRatesCache[from][to]).toFixed(4);
+    return roundFxRate(liveRatesCache[from][to]);
   }
 
   // 2. Cross-rate calculation via USD base in live cache
@@ -130,7 +137,7 @@ export function estimateExchangeRate(fromCurrency: string, toCurrency: string): 
     const usdToTarget = to === "USD" ? 1.0 : usdRates[to] ?? null;
 
     if (fromToUsd !== null && usdToTarget !== null) {
-      return +(fromToUsd * usdToTarget).toFixed(4);
+      return roundFxRate(fromToUsd * usdToTarget);
     }
   }
 
@@ -141,7 +148,7 @@ export function estimateExchangeRate(fromCurrency: string, toCurrency: string): 
   const fromToINR = fromMeta ? fromMeta.defaultRateToINR : 1.0;
   const toToINR = toMeta ? toMeta.defaultRateToINR : 1.0;
 
-  return +(fromToINR / toToINR).toFixed(4);
+  return roundFxRate(fromToINR / toToINR);
 }
 
 /**

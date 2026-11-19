@@ -21,6 +21,7 @@ import {
   SUPPORTED_CURRENCIES,
   currencySymbol,
   estimateExchangeRate,
+  convertAmount,
   formatMoney,
 } from "@/lib/currencies";
 import { Avatar } from "@/components/ui/Avatar";
@@ -78,12 +79,20 @@ export function SettleUpModal({
   }, [recipient]);
 
   const handleCurrencyChange = (newCurr: string) => {
+    const oldCurr = currency;
     setCurrency(newCurr);
     if (newCurr.toUpperCase() === space.currency.toUpperCase()) {
       setExchangeRate("1.0");
     } else {
       const est = estimateExchangeRate(newCurr, space.currency);
       setExchangeRate(est.toString());
+    }
+    // Convert current amount to the newly selected currency
+    if (rawNumAmount > 0) {
+      const converted = convertAmount(rawNumAmount, oldCurr, newCurr);
+      if (converted > 0) {
+        setAmount(converted.toString());
+      }
     }
   };
 
@@ -95,8 +104,8 @@ export function SettleUpModal({
     "📱 PhonePe / Paytm",
   ];
 
-  // UPI deep link for direct payment on mobile devices
-  const upiAmount = currency.toUpperCase() === "INR" ? rawNumAmount : calculatedSpaceAmount;
+  // UPI deep link for direct payment on mobile devices (converted to INR if in another currency)
+  const upiAmount = currency.toUpperCase() === "INR" ? rawNumAmount : convertAmount(rawNumAmount, currency, "INR");
   const upiDeepLink = upiId
     ? `upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent(
         recipient?.name || "Recipient"
@@ -112,10 +121,14 @@ export function SettleUpModal({
 
   const handleCopyUpiLink = () => {
     if (!upiDeepLink) return;
-    navigator.clipboard.writeText(upiDeepLink).then(() => {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    });
+    navigator.clipboard?.writeText?.(upiDeepLink)
+      ?.then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      })
+      ?.catch(() => {
+        // Fallback for restricted clipboard contexts
+      });
   };
 
   async function handleSettle() {

@@ -281,15 +281,38 @@ export function ExpenseModal({
     if (mode === "exact") {
       let sum = 0;
       const targetAmount = isForeign ? rawAmount : calculatedTotalInSpaceCurrency;
-      const items = activeMemberIds.map((id) => {
-        const val = Number(splitInputs[id]) || 0;
+      const targetTotalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
+      let allocatedConvertedCents = 0;
+
+      const rawItems = activeMemberIds.map((id) => {
+        const val = Math.max(0, Number(splitInputs[id]) || 0);
         sum += val;
-        const converted = isForeign ? +(val * rateNum).toFixed(2) : +val.toFixed(2);
-        return { user_id: id, amount: converted, split_value: isForeign ? val : null };
+        const convertedCents = isForeign ? Math.round(val * rateNum * 100) : Math.round(val * 100);
+        allocatedConvertedCents += convertedCents;
+        return { user_id: id, convertedCents, split_value: isForeign ? val : null };
       });
+
       const roundedSum = +sum.toFixed(2);
+      const isBalanced = Math.abs(roundedSum - targetAmount) < 0.009;
+
+      // In foreign currency, reconcile any 1-2 cent conversion rounding drift to guarantee sum(splits) === total expense cents
+      let remainderCents = isBalanced && isForeign ? targetTotalCents - allocatedConvertedCents : 0;
+      const items = rawItems.map((item) => {
+        let extra = 0;
+        if (remainderCents !== 0) {
+          extra = remainderCents > 0 ? 1 : -1;
+          remainderCents -= extra;
+        }
+        const finalCents = item.convertedCents + extra;
+        return {
+          user_id: item.user_id,
+          amount: +(finalCents / 100).toFixed(2),
+          split_value: item.split_value,
+        };
+      });
+
       return {
-        isBalanced: Math.abs(roundedSum - targetAmount) < 0.009,
+        isBalanced,
         sum: roundedSum,
         target: targetAmount,
         items,
@@ -299,24 +322,34 @@ export function ExpenseModal({
     if (mode === "percentage") {
       let sumPct = 0;
       activeMemberIds.forEach((id) => {
-        sumPct += Number(splitInputs[id]) || 0;
+        sumPct += Math.max(0, Number(splitInputs[id]) || 0);
       });
       const roundedPct = +sumPct.toFixed(2);
       const isBalanced = Math.abs(roundedPct - 100) < 0.01;
 
-      // Exact integer-cent allocation to eliminate dropped penny drift
+      // Exact integer-cent allocation using Largest Remainder Method (Hare-Niemeyer)
       const totalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
       let allocatedCents = 0;
-      const rawCents = activeMemberIds.map((id) => {
-        const pct = Number(splitInputs[id]) || 0;
-        const cents = isBalanced ? Math.floor((pct / 100) * totalCents) : Math.round((pct / 100) * totalCents);
-        allocatedCents += cents;
-        return { id, pct, cents };
+      const memberShares = activeMemberIds.map((id, idx) => {
+        const pct = Math.max(0, Number(splitInputs[id]) || 0);
+        const exactCents = isBalanced ? (pct / 100) * totalCents : Math.round((pct / 100) * totalCents);
+        const floorCents = Math.floor(exactCents);
+        const fraction = exactCents - floorCents;
+        allocatedCents += floorCents;
+        return { id, pct, floorCents, fraction, originalIdx: idx };
       });
-      const remainderCents = isBalanced ? totalCents - allocatedCents : 0;
-      const items = rawCents.map((item, idx) => {
-        const extra = idx < remainderCents ? 1 : 0;
-        const finalCents = item.cents + extra;
+
+      let remainderCents = isBalanced ? Math.max(0, totalCents - allocatedCents) : 0;
+      // Sort members with largest fractional remainder to receive remainder pennies first
+      const sortedByFraction = [...memberShares].sort((a, b) => b.fraction - a.fraction || a.originalIdx - b.originalIdx);
+      const bonusMap: Record<string, number> = {};
+      for (let i = 0; i < sortedByFraction.length && remainderCents > 0; i++) {
+        bonusMap[sortedByFraction[i].id] = 1;
+        remainderCents--;
+      }
+
+      const items = memberShares.map((item) => {
+        const finalCents = item.floorCents + (bonusMap[item.id] || 0);
         return {
           user_id: item.id,
           amount: +(finalCents / 100).toFixed(2),
@@ -335,22 +368,31 @@ export function ExpenseModal({
     if (mode === "shares") {
       let totalShares = 0;
       activeMemberIds.forEach((id) => {
-        totalShares += Math.max(1, Number(splitInputs[id]) || 1);
+        totalShares += Math.max(0, Number(splitInputs[id]) || 0);
       });
 
-      // Exact integer-cent allocation according to integer share weights
+      // Exact integer-cent allocation according to integer share weights (Largest Remainder Method)
       const totalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
       let allocatedCents = 0;
-      const rawCents = activeMemberIds.map((id) => {
-        const shares = Math.max(1, Number(splitInputs[id]) || 1);
-        const cents = totalShares > 0 ? Math.floor((shares / totalShares) * totalCents) : 0;
-        allocatedCents += cents;
-        return { id, shares, cents };
+      const memberShares = activeMemberIds.map((id, idx) => {
+        const shares = Math.max(0, Number(splitInputs[id]) || 0);
+        const exactCents = totalShares > 0 ? (shares / totalShares) * totalCents : 0;
+        const floorCents = Math.floor(exactCents);
+        const fraction = exactCents - floorCents;
+        allocatedCents += floorCents;
+        return { id, shares, floorCents, fraction, originalIdx: idx };
       });
-      const remainderCents = totalShares > 0 ? totalCents - allocatedCents : 0;
-      const items = rawCents.map((item, idx) => {
-        const extra = idx < remainderCents ? 1 : 0;
-        const finalCents = item.cents + extra;
+
+      let remainderCents = totalShares > 0 ? Math.max(0, totalCents - allocatedCents) : 0;
+      const sortedByFraction = [...memberShares].sort((a, b) => b.fraction - a.fraction || a.originalIdx - b.originalIdx);
+      const bonusMap: Record<string, number> = {};
+      for (let i = 0; i < sortedByFraction.length && remainderCents > 0; i++) {
+        bonusMap[sortedByFraction[i].id] = 1;
+        remainderCents--;
+      }
+
+      const items = memberShares.map((item) => {
+        const finalCents = item.floorCents + (bonusMap[item.id] || 0);
         return {
           user_id: item.id,
           amount: +(finalCents / 100).toFixed(2),

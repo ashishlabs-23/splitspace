@@ -345,12 +345,19 @@ export default function Home() {
     }
 
     const handlePopState = (e: PopStateEvent) => {
-      const view = e.state?.view;
-      if (view === "dashboard") {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      const spaceParam = url.searchParams.get("space");
+      const viewParam = url.searchParams.get("view");
+      const targetView = e.state?.view || viewParam;
+
+      if (targetView === "dashboard" || spaceParam) {
         setViewMode("dashboard");
+        if (spaceParam) {
+          setActiveId(spaceParam);
+        }
       } else {
         setViewMode("landing");
-        window.history.replaceState({ view: "landing" }, "");
       }
     };
 

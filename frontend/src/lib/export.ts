@@ -28,6 +28,10 @@ export function sanitizeMarkdownCell(value: string | null | undefined): string {
  */
 export function sanitizeCsvField(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '""';
+  // Numeric values (including negative amounts like -15.50) are safe and must remain numbers for spreadsheet SUM()
+  if (typeof value === "number" || (/^-?\d+(\.\d+)?$/.test(String(value).trim()))) {
+    return `"${value}"`;
+  }
   const str = String(value).trim();
   if (/^[=\+\-@\t\r]/.test(str)) {
     return `"'${str.replace(/"/g, '""')}"`;
@@ -577,18 +581,26 @@ export function exportSpaceToCsv(space: Space): void {
     "Notes",
   ];
 
-  const rows = space.expenses.map((e) => {
-    const expDate = new Date(e.created_at).toISOString().split("T")[0];
+  const rows = (space.expenses || []).map((e) => {
+    let expDate = "";
+    try {
+      expDate = new Date(e.created_at).toISOString().split("T")[0];
+    } catch {
+      expDate = e.created_at || "";
+    }
+    const safeAmount = Number(e.amount) || 0;
+    const safeOriginal = e.original_amount != null ? Number(e.original_amount) || safeAmount : safeAmount;
+    const payerName = e.paid_by?.name || "Member";
     return [
       sanitizeCsvField(expDate),
-      sanitizeCsvField(e.category),
-      sanitizeCsvField(e.title),
-      sanitizeCsvField(e.paid_by.name),
-      sanitizeCsvField(e.amount.toFixed(2)),
-      sanitizeCsvField(space.currency),
-      sanitizeCsvField(e.original_amount != null ? e.original_amount.toFixed(2) : e.amount.toFixed(2)),
-      sanitizeCsvField(e.original_currency || space.currency),
-      sanitizeCsvField(e.exchange_rate != null ? e.exchange_rate.toString() : "1.0"),
+      sanitizeCsvField(e.category || "General"),
+      sanitizeCsvField(e.title || "Expense"),
+      sanitizeCsvField(payerName),
+      sanitizeCsvField(safeAmount.toFixed(2)),
+      sanitizeCsvField(space.currency || "USD"),
+      sanitizeCsvField(safeOriginal.toFixed(2)),
+      sanitizeCsvField(e.original_currency || space.currency || "USD"),
+      sanitizeCsvField(e.exchange_rate != null ? String(e.exchange_rate) : "1.0"),
       sanitizeCsvField(e.note || ""),
     ].join(",");
   });

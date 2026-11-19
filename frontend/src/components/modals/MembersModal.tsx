@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api, Space, Member } from "@/lib/api";
+import { validateEmail } from "@/lib/validation";
 import { Overlay } from "@/components/ui/overlay";
 import { X, UserPlus, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -25,6 +26,12 @@ export function MembersModal({
   async function add() {
     if (!name.trim()) {
       return setErr("Please enter a name for this person.");
+    }
+    if (email.trim()) {
+      const emailRes = validateEmail(email.trim());
+      if (!emailRes.valid) {
+        return setErr(emailRes.error || "Please enter a valid email address.");
+      }
     }
     setSaving(true);
     setErr("");

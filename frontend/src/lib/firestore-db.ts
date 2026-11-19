@@ -265,6 +265,23 @@ export const firestoreDb = {
 
   async leaveSpace(spaceId: string, user: Member): Promise<{ ok: boolean }> {
     if (!db) throw new Error("Database not connected");
+
+    // Prevent departure with un-reconciled debt balances
+    try {
+      const summary = await this.getSummary(spaceId, user.id, user.email);
+      const userBalance = summary.member_balances.find((b) => memberMatchesUser(b.member, user.id, user.email));
+      if (userBalance && Math.abs(userBalance.net_balance) > 0.01) {
+        const amtStr = Math.abs(userBalance.net_balance).toFixed(2);
+        if (userBalance.net_balance < 0) {
+          throw new Error(`You cannot leave while you owe funds (${amtStr}). Please settle up first.`);
+        } else {
+          throw new Error(`You are still owed funds (${amtStr}) in this space. Please settle before leaving.`);
+        }
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes("funds")) throw e;
+    }
+
     const spaceRef = doc(db, "spaces", spaceId);
     await runTransaction(db, async (transaction) => {
       const spaceSnap = await transaction.get(spaceRef);
@@ -741,6 +758,8 @@ export const firestoreDb = {
       member: Member;
       total_paid_cents: number;
       total_owed_cents: number;
+      settled_paid_cents: number;
+      settled_received_cents: number;
     }> = {};
 
     members.forEach((m) => {
@@ -748,6 +767,8 @@ export const firestoreDb = {
         member: m,
         total_paid_cents: 0,
         total_owed_cents: 0,
+        settled_paid_cents: 0,
+        settled_received_cents: 0,
       };
     });
 
@@ -763,6 +784,8 @@ export const firestoreDb = {
           },
           total_paid_cents: 0,
           total_owed_cents: 0,
+          settled_paid_cents: 0,
+          settled_received_cents: 0,
         };
       }
     };
@@ -801,15 +824,15 @@ export const firestoreDb = {
       ensureMember(s.from_member.id, s.from_member);
       ensureMember(s.to_member.id, s.to_member);
       if (memberTotals[s.from_member.id]) {
-        memberTotals[s.from_member.id].total_paid_cents += settleCents;
+        memberTotals[s.from_member.id].settled_paid_cents += settleCents;
       }
       if (memberTotals[s.to_member.id]) {
-        memberTotals[s.to_member.id].total_owed_cents += settleCents;
+        memberTotals[s.to_member.id].settled_received_cents += settleCents;
       }
     });
 
     const memberBalances: MemberBalance[] = Object.values(memberTotals).map((mt) => {
-      const netCents = mt.total_paid_cents - mt.total_owed_cents;
+      const netCents = (mt.total_paid_cents - mt.total_owed_cents) + (mt.settled_paid_cents - mt.settled_received_cents);
       return {
         member: mt.member,
         total_paid: mt.total_paid_cents / 100,

@@ -92,48 +92,36 @@ export function SpaceSidebar({
         />
       )}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{ paddingBottom: 28 }}>
-        {/* Brand header */}
-        <div
-          className="brand"
-          style={{ cursor: "pointer" }}
-          onClick={() => {
-            onCloseSidebar();
-            if (onGoToLanding) {
-              onGoToLanding();
-            } else if (typeof window !== "undefined") {
-              window.location.href = "/";
-            }
-          }}
-          title="Back to Landing Page"
-        >
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: "50%",
-              background: "#ffffff",
-              border: "1.5px solid rgba(200, 126, 10, 0.28)",
-              boxShadow: "0 2px 10px rgba(200, 126, 10, 0.15)",
-              display: "grid",
-              placeItems: "center",
-              flexShrink: 0,
-              overflow: "hidden",
-              padding: 2,
-            }}
-          >
-            <img src="/logo.png" alt="SplitSpace Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-          </div>
-          <div>
-            <div className="brand-name">SplitSpace</div>
-            <div className="brand-sub">Group expenses, simplified</div>
-          </div>
+        {/* Brand header & mobile close button */}
+        <div className="sidebar-header">
           <button
-            className="icon-btn mobile-close"
-            onClick={(e) => {
-              e.stopPropagation();
+            type="button"
+            className="sidebar-brand-btn"
+            onClick={() => {
               onCloseSidebar();
+              if (onGoToLanding) {
+                onGoToLanding();
+              } else if (typeof window !== "undefined") {
+                window.location.href = "/";
+              }
             }}
+            title="Back to Landing Page"
+            aria-label="SplitSpace - Back to Landing Page"
+          >
+            <div className="brand-logo-wrap">
+              <img src="/logo.png" alt="SplitSpace Logo" className="brand-logo-img" />
+            </div>
+            <div className="brand-text">
+              <span className="brand-name">SplitSpace</span>
+              <span className="brand-sub">Group expenses, simplified</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            className="mobile-close-btn"
+            onClick={onCloseSidebar}
             aria-label="Close sidebar navigation"
+            title="Close sidebar"
           >
             <X size={18} />
           </button>
