@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { api, Space, Expense, Split, SplitMode } from "@/lib/api";
+import { api, Space, Expense, Split, SplitMode, ExpensePayer } from "@/lib/api";
 import { Overlay } from "@/components/ui/overlay";
 import {
   X,
@@ -198,6 +198,17 @@ export function ExpenseModal({
     initialExpense?.exchange_rate ? initialExpense.exchange_rate.toString() : "1.0"
   );
   const [payer, setPayer] = useState(initialExpense?.paid_by.id ?? space.members[0]?.id ?? "");
+  const [isMultiPayer, setIsMultiPayer] = useState(Boolean(initialExpense?.payers && initialExpense.payers.length > 1));
+  const [payerInputs, setPayerInputs] = useState<Record<string, string>>(() => {
+    if (initialExpense?.payers && initialExpense.payers.length > 0) {
+      return Object.fromEntries(
+        initialExpense.payers.map((p) => [p.user_id, p.amount.toString()])
+      );
+    }
+    return {
+      [initialExpense?.paid_by.id ?? space.members[0]?.id ?? ""]: (initialExpense?.amount ?? "").toString(),
+    };
+  });
   const [category, setCategory] = useState(initialExpense?.category ?? "food");
   const [note, setNote] = useState(initialExpense?.note ?? "");
   const [isRecurring, setIsRecurring] = useState(Boolean(initialExpense?.is_recurring));
@@ -236,6 +247,25 @@ export function ExpenseModal({
   const rawAmount = Math.max(0, Number(origAmount) || 0);
   const rateNum = Math.max(0.0001, Number(exchangeRate) || 1.0);
   const calculatedTotalInSpaceCurrency = isForeign ? +(rawAmount * rateNum).toFixed(2) : rawAmount;
+
+  const totalPaidSum = space.members.reduce((sum, m) => sum + (Number(payerInputs[m.id]) || 0), 0);
+  const rawPayerRemaining = +(calculatedTotalInSpaceCurrency - totalPaidSum).toFixed(2);
+
+  const splitPaidEqually = () => {
+    const activeMembers = space.members;
+    if (!activeMembers.length) return;
+    const totalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
+    const count = activeMembers.length;
+    const baseCents = Math.floor(totalCents / count);
+    const remainder = totalCents % count;
+
+    const newInputs: Record<string, string> = {};
+    activeMembers.forEach((m, idx) => {
+      const shareCents = baseCents + (idx < remainder ? 1 : 0);
+      newInputs[m.id] = (shareCents / 100).toFixed(2);
+    });
+    setPayerInputs(newInputs);
+  };
 
   const handleCurrencyChange = (newCurr: string) => {
     setCurrency(newCurr);
@@ -429,6 +459,43 @@ export function ExpenseModal({
       return;
     }
 
+    let finalPayers: ExpensePayer[] | undefined = undefined;
+    let primaryPayer = payer;
+
+    if (isMultiPayer) {
+      const activePayersList: ExpensePayer[] = [];
+      let totalAssignedCents = 0;
+
+      for (const m of space.members) {
+        const val = Number(payerInputs[m.id]) || 0;
+        if (val > 0) {
+          activePayersList.push({
+            user_id: m.id,
+            amount: +val.toFixed(2),
+          });
+          totalAssignedCents += Math.round(val * 100);
+        }
+      }
+
+      if (activePayersList.length === 0) {
+        return setErr("Please enter the amount paid by each person.");
+      }
+
+      const expectedTotalCents = Math.round(calculatedTotalInSpaceCurrency * 100);
+      if (Math.abs(totalAssignedCents - expectedTotalCents) > 1) {
+        const diff = (expectedTotalCents - totalAssignedCents) / 100;
+        return setErr(
+          diff > 0
+            ? `Payer amounts are short by ${space.currency} ${diff.toFixed(2)}. The sum of paid amounts must equal the total expense.`
+            : `Payer amounts exceed total by ${space.currency} ${Math.abs(diff).toFixed(2)}. The sum of paid amounts must equal the total expense.`
+        );
+      }
+
+      finalPayers = activePayersList;
+      const highest = [...activePayersList].sort((a, b) => b.amount - a.amount)[0];
+      if (highest) primaryPayer = highest.user_id;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -440,7 +507,8 @@ export function ExpenseModal({
         exchange_rate: isForeign ? rateNum : 1.0,
         category,
         note: note.trim(),
-        paid_by: payer,
+        paid_by: primaryPayer,
+        payers: finalPayers,
         split_mode: mode,
         splits: splitCalculations.items,
         is_recurring: isRecurring,
@@ -729,58 +797,171 @@ export function ExpenseModal({
           </div>
 
           {/* Paid By & Category Row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMultiPayer ? "1fr" : "1fr 1fr", gap: 12 }}>
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#6b7280",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  marginBottom: 6,
-                }}
-              >
-                PAID BY
-              </label>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={payer}
-                  onChange={(e) => setPayer(e.target.value)}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label
                   style={{
-                    width: "100%",
-                    height: 48,
-                    boxSizing: "border-box",
-                    background: "#ffffff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 12,
-                    padding: "0 28px 0 14px",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "#1e2029",
-                    appearance: "none",
-                    cursor: "pointer",
+                    display: "block",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6b7280",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
                   }}
                 >
-                  {space.members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} {m.id === space.members[0]?.id ? "(You)" : ""}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={15}
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#6b7280",
-                    pointerEvents: "none",
-                  }}
-                />
+                  PAID BY
+                </label>
+                <div style={{ display: "inline-flex", background: "#f3f4f6", borderRadius: 8, padding: 2 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMultiPayer(false)}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 6,
+                      background: !isMultiPayer ? "#ffffff" : "transparent",
+                      color: !isMultiPayer ? "#111827" : "#6b7280",
+                      boxShadow: !isMultiPayer ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Single
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultiPayer(true);
+                      if (calculatedTotalInSpaceCurrency > 0 && Object.keys(payerInputs).length <= 1) {
+                        setPayerInputs({ [payer]: calculatedTotalInSpaceCurrency.toString() });
+                      }
+                    }}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 6,
+                      background: isMultiPayer ? "#ffffff" : "transparent",
+                      color: isMultiPayer ? "#111827" : "#6b7280",
+                      boxShadow: isMultiPayer ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Multiple
+                  </button>
+                </div>
               </div>
+
+              {!isMultiPayer ? (
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={payer}
+                    onChange={(e) => setPayer(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: 48,
+                      boxSizing: "border-box",
+                      background: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "0 28px 0 14px",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "#1e2029",
+                      appearance: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {space.members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {m.id === space.members[0]?.id ? "(You)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={15}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#6b7280",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, color: "#4b5563", fontWeight: 600 }}>
+                      Paid per member ({space.currency}):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={splitPaidEqually}
+                      style={{
+                        fontSize: 11,
+                        color: "#c87e0a",
+                        background: "rgba(200, 126, 10, 0.12)",
+                        border: "1px solid rgba(200, 126, 10, 0.2)",
+                        borderRadius: 6,
+                        padding: "3px 8px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Split Equally
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 160, overflowY: "auto" }}>
+                    {space.members.map((m) => (
+                      <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: "#1f2937", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.name}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, width: 130 }}>
+                          <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>{currencySymbol(space.currency)}</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={payerInputs[m.id] ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPayerInputs((prev) => ({ ...prev, [m.id]: val }));
+                            }}
+                            style={{
+                              width: "100%",
+                              height: 34,
+                              background: "#ffffff",
+                              border: "1px solid #d1d5db",
+                              borderRadius: 8,
+                              padding: "0 8px",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              textAlign: "right",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: "1px solid #e5e7eb", fontSize: 12 }}>
+                    <span style={{ color: "#6b7280" }}>Total paid:</span>
+                    <span style={{
+                      fontWeight: 700,
+                      color: Math.abs(rawPayerRemaining) < 0.02 ? "#059669" : "#dc2626",
+                    }}>
+                      {currencySymbol(space.currency)}{totalPaidSum.toFixed(2)} / {currencySymbol(space.currency)}{calculatedTotalInSpaceCurrency.toFixed(2)}
+                      {Math.abs(rawPayerRemaining) < 0.02 ? " ✓" : ` (diff: ${rawPayerRemaining > 0 ? "+" : ""}${rawPayerRemaining.toFixed(2)})`}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

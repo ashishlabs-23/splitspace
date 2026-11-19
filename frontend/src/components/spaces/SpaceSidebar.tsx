@@ -15,8 +15,10 @@ import {
   Activity,
   Check,
   Download,
+  Bell,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { requestFcmToken, sendLocalTestNotification } from "@/lib/fcm";
 
 export function SpaceSidebar({
   spaces,
@@ -45,7 +47,40 @@ export function SpaceSidebar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isFcmEnabled, setIsFcmEnabled] = useState(false);
+  const [fcmLoading, setFcmLoading] = useState(false);
+  const [fcmMsg, setFcmMsg] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setIsFcmEnabled(Notification.permission === "granted");
+    }
+  }, [showSettingsModal]);
+
+  const handleToggleFcm = async () => {
+    setFcmLoading(true);
+    setFcmMsg("");
+    try {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        await sendLocalTestNotification();
+        setFcmMsg("Test notification dispatched to your device!");
+      } else {
+        const res = await requestFcmToken(user?.id);
+        if (res.permission === "granted") {
+          setIsFcmEnabled(true);
+          setFcmMsg("Push notifications enabled!");
+          await sendLocalTestNotification();
+        } else {
+          setFcmMsg(res.error || "Permission was not granted.");
+        }
+      }
+    } catch (e: any) {
+      setFcmMsg(e.message || "Could not enable push notifications.");
+    } finally {
+      setFcmLoading(false);
+    }
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -487,6 +522,46 @@ export function SpaceSidebar({
                   <strong style={{ fontSize: 12, color: "#166534", display: "block" }}>Cloud Firestore Online</strong>
                   <span style={{ fontSize: 11, color: "#15803d" }}>Atomic transactions & 90-day auto-TTL enabled.</span>
                 </div>
+              </div>
+
+              {/* Push Notifications (Firebase Cloud Messaging) */}
+              <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: isFcmEnabled ? "#f0fdf4" : "#fef3c7", color: isFcmEnabled ? "#16a34a" : "#d97706", display: "grid", placeItems: "center" }}>
+                      <Bell size={16} />
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: 13, color: "#0f172a", display: "block" }}>Push Notifications (FCM)</strong>
+                      <span style={{ fontSize: 11, color: "#64748b" }}>
+                        {isFcmEnabled ? "Active — receiving expense & debt alerts" : "Instant updates via Web Push"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleFcm}
+                    disabled={fcmLoading}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      border: "none",
+                      background: isFcmEnabled ? "#f1f5f9" : "linear-gradient(135deg, #c87e0a 0%, #b06c04 100%)",
+                      color: isFcmEnabled ? "#334155" : "#ffffff",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {fcmLoading ? "Enabling..." : isFcmEnabled ? "Test Alert" : "Enable"}
+                  </button>
+                </div>
+                {fcmMsg && (
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: fcmMsg.includes("Test") || fcmMsg.includes("enabled") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                    {fcmMsg}
+                  </div>
+                )}
               </div>
 
               {/* Keyboard Shortcuts Summary */}

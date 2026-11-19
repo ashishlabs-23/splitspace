@@ -39,8 +39,18 @@ function computeSummary(space, expenses, settlements) {
     const expenseCents = Math.round(Number(e.amount) * 100);
     totalSpentCents += expenseCents;
 
-    ensureMember(e.paid_by.id, e.paid_by);
-    memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
+    if (e.payers && Array.isArray(e.payers) && e.payers.length > 0) {
+      e.payers.forEach((p) => {
+        const payerCents = Math.round(Number(p.amount) * 100);
+        ensureMember(p.user_id);
+        if (memberTotals[p.user_id]) {
+          memberTotals[p.user_id].total_paid_cents += payerCents;
+        }
+      });
+    } else {
+      ensureMember(e.paid_by.id, e.paid_by);
+      memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
+    }
 
     if (e.splits && e.splits.length > 0) {
       e.splits.forEach((sp) => {
@@ -492,4 +502,59 @@ test('Case 1.13: Scale Stress ($100,000,000.00 Transaction)', () => {
   assert.equal(summary.total_spent, 100000000.00);
   assert.equal(summary.settlements.length, 1);
   assert.equal(summary.settlements[0].amount, 50000000.00);
+});
+
+test('Case 1.14: Multi-Payer Split Expense (Co-payments by multiple members)', () => {
+  const space = {
+    members: [
+      { id: 'm1', name: 'Alice' },
+      { id: 'm2', name: 'Bob' },
+      { id: 'm3', name: 'Charlie' },
+    ]
+  };
+
+  // $120.00 dinner: Alice paid $70, Bob paid $50. Split equally among all 3 ($40 each).
+  const expenses = [
+    {
+      id: 'e1',
+      amount: 120.00,
+      paid_by: { id: 'm1', name: 'Alice' },
+      payers: [
+        { user_id: 'm1', amount: 70.00 },
+        { user_id: 'm2', amount: 50.00 },
+      ],
+      split_mode: 'equal',
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+  assert.equal(summary.total_spent, 120.00);
+
+  const b1 = summary.member_balances.find(b => b.member.id === 'm1');
+  const b2 = summary.member_balances.find(b => b.member.id === 'm2');
+  const b3 = summary.member_balances.find(b => b.member.id === 'm3');
+
+  // Alice: paid 70, owed 40 -> net +30
+  // Bob: paid 50, owed 40 -> net +10
+  // Charlie: paid 0, owed 40 -> net -40
+  assert.equal(b1.total_paid, 70.00);
+  assert.equal(b1.total_owed, 40.00);
+  assert.equal(b1.net_balance, 30.00);
+
+  assert.equal(b2.total_paid, 50.00);
+  assert.equal(b2.total_owed, 40.00);
+  assert.equal(b2.net_balance, 10.00);
+
+  assert.equal(b3.total_paid, 0.00);
+  assert.equal(b3.total_owed, 40.00);
+  assert.equal(b3.net_balance, -40.00);
+
+  // Settlement should be exactly: Charlie pays Alice $30, Charlie pays Bob $10
+  assert.equal(summary.settlements.length, 2);
+  const toAlice = summary.settlements.find(s => s.to_member.id === 'm1');
+  const toBob = summary.settlements.find(s => s.to_member.id === 'm2');
+  assert.equal(toAlice.from_member.id, 'm3');
+  assert.equal(toAlice.amount, 30.00);
+  assert.equal(toBob.from_member.id, 'm3');
+  assert.equal(toBob.amount, 10.00);
 });

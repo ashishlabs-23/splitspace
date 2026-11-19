@@ -148,7 +148,9 @@ export function ExpenseList({
                         )}
                       </div>
                       <small style={{ color: "#6b7280", fontSize: 11.5, display: "block", marginTop: 2 }}>
-                        Paid by {e.paid_by.name} · {new Date(e.created_at).toLocaleDateString()}
+                        {e.payers && e.payers.length > 1
+                          ? `Paid by ${e.payers.length} people · ${new Date(e.created_at).toLocaleDateString()}`
+                          : `Paid by ${e.paid_by.name} · ${new Date(e.created_at).toLocaleDateString()}`}
                       </small>
                     </div>
                   </div>
@@ -427,7 +429,21 @@ export function ExpenseList({
                   Paid By
                 </span>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1e2029", marginTop: 2 }}>
-                  {selectedExpense.paid_by.name}
+                  {selectedExpense.payers && selectedExpense.payers.length > 1 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
+                      {selectedExpense.payers.map((p) => {
+                        const m = space.members.find((sm) => sm.id === p.user_id);
+                        return (
+                          <div key={p.user_id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                            <span style={{ color: "#374151" }}>{m?.name || "Member"}</span>
+                            <span style={{ fontWeight: 700, color: "#059669" }}>{formatMoney(p.amount, selectedExpense.currency)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    selectedExpense.paid_by.name
+                  )}
                 </div>
               </div>
 

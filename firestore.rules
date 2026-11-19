@@ -90,6 +90,7 @@ service cloud.firestore {
           'original_currency',
           'exchange_rate',
           'paid_by',
+          'payers',
           'category',
           'note',
           'created_at',
@@ -113,6 +114,7 @@ service cloud.firestore {
         && request.resource.data.category is string
         && request.resource.data.category.size() <= 50
         && request.resource.data.paid_by is map
+        && (!request.resource.data.keys().hasAny(['payers']) || request.resource.data.payers == null || (request.resource.data.payers is list && request.resource.data.payers.size() <= 100))
         && request.resource.data.splits is list
         && request.resource.data.splits.size() <= 200
         && request.resource.data.created_at is string
@@ -159,6 +161,10 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow create, update: if isSignedIn() && request.auth.uid == userId;
       allow delete: if false;
+
+      match /fcm_tokens/{tokenId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     match /spaces/{spaceId} {

@@ -15,7 +15,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Member, Space, Expense, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction, ActivityItem, ActivityType } from "./api";
+import { Member, Space, Expense, ExpensePayer, SettlementRecord, Summary, Split, SplitMode, MemberBalance, SettlementInstruction, ActivityItem, ActivityType } from "./api";
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -466,6 +466,7 @@ export const firestoreDb = {
       category: string;
       note?: string;
       paid_by: string;
+      payers?: ExpensePayer[];
       split_mode: SplitMode;
       splits: Split[];
       is_recurring?: boolean;
@@ -497,6 +498,10 @@ export const firestoreDb = {
       updated_at: timestamp,
       created_by_uid: actor.id,
     };
+
+    if (body.payers && Array.isArray(body.payers) && body.payers.length > 0) {
+      newExpense.payers = body.payers;
+    }
 
     if (body.is_recurring) {
       newExpense.is_recurring = true;
@@ -531,6 +536,7 @@ export const firestoreDb = {
       category: string;
       note?: string;
       paid_by: string;
+      payers?: ExpensePayer[];
       split_mode: SplitMode;
       splits: Split[];
       is_recurring?: boolean;
@@ -564,6 +570,14 @@ export const firestoreDb = {
       updated_at: nowIso(),
       created_by_uid: existingData.created_by_uid || actor.id,
     };
+
+    if (body.payers !== undefined) {
+      if (body.payers && body.payers.length > 0) {
+        updatedExpense.payers = body.payers;
+      }
+    } else if (existingData.payers) {
+      updatedExpense.payers = existingData.payers;
+    }
 
     if (body.is_recurring) {
       updatedExpense.is_recurring = true;
@@ -794,8 +808,18 @@ export const firestoreDb = {
       const expenseCents = Math.round(Number(e.amount) * 100);
       totalSpentCents += expenseCents;
 
-      ensureMember(e.paid_by.id, e.paid_by);
-      memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
+      if (e.payers && Array.isArray(e.payers) && e.payers.length > 0) {
+        e.payers.forEach((p) => {
+          const payerCents = Math.round(Number(p.amount) * 100);
+          ensureMember(p.user_id);
+          if (memberTotals[p.user_id]) {
+            memberTotals[p.user_id].total_paid_cents += payerCents;
+          }
+        });
+      } else {
+        ensureMember(e.paid_by.id, e.paid_by);
+        memberTotals[e.paid_by.id].total_paid_cents += expenseCents;
+      }
 
       if (e.splits && e.splits.length > 0) {
         e.splits.forEach((sp) => {

@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/useAuth";
 import { useShortcuts } from "@/lib/useShortcuts";
 import { formatMoney } from "@/lib/currencies";
 import { LandingPage } from "@/components/landing/LandingPage";
+import { listenToForegroundNotifications } from "@/lib/fcm";
 
 const DEMO_SPACE: Space = {
   id: "demo-space-goa",
@@ -311,6 +312,21 @@ export default function Home() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  // Real-time FCM foreground push notification listener
+  useEffect(() => {
+    if (!user) return;
+    let cleanup: (() => void) | null = null;
+    listenToForegroundNotifications(({ title, body }) => {
+      toast.info(`${title}: ${body}`);
+    }).then((unsub) => {
+      cleanup = unsub;
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [user, toast]);
 
   // Keyboard shortcuts
   useShortcuts({

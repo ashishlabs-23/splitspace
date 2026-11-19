@@ -24,6 +24,11 @@ export interface Split {
   split_value?: number | null;
 }
 
+export interface ExpensePayer {
+  user_id: string;
+  amount: number;
+}
+
 export interface Expense {
   id: string;
   title: string;
@@ -33,6 +38,7 @@ export interface Expense {
   original_currency?: string | null;
   exchange_rate?: number | null;
   paid_by: Member;
+  payers?: ExpensePayer[];
   category: string;
   note?: string | null;
   created_at: string;
@@ -273,6 +279,7 @@ export const api = {
       category: string;
       note?: string;
       paid_by: string;
+      payers?: ExpensePayer[];
       split_mode: SplitMode;
       splits: Split[];
       is_recurring?: boolean;
@@ -299,6 +306,7 @@ export const api = {
       category: string;
       note?: string;
       paid_by: string;
+      payers?: ExpensePayer[];
       split_mode: SplitMode;
       splits: Split[];
       is_recurring?: boolean;

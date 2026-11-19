@@ -11,7 +11,7 @@
 - [x] **Phase 5: Real-Time Firestore Synchronization & Concurrency** (Completed)
 - [x] **Phase 6: Front-End Spacing, Padding & Mobile Polish** (Completed)
 - [x] **Phase 7: CodeRabbit & GitHub Actions CI/CD Integration** (Completed)
-- [ ] **Phase 8: Future Roadmap & Advanced Capabilities** (Deferred / Future Scope)
+- [x] **Phase 8: Advanced Capabilities & Feature Freeze** (Completed)
 
 ---
 
@@ -66,8 +66,7 @@
 - [x] Configure CI workflow (`docs/ci-workflow.yml`) running linting, build checks, and `node scripts/test-engine.mjs`.
 - [x] Run full build verification and deployment to Firebase Hosting.
 
-### Phase 8: Future Roadmap & Next-Gen Capabilities (Deferred)
+### Phase 8: Advanced Capabilities & Project Freeze
+- [x] Multi-payer split expenses (allowing multiple people to co-pay a single transaction with live allocation validation).
+- [x] Push notifications via Firebase Cloud Messaging (FCM Web Push SW, foreground toasts, device token registration).
 - [ ] Receipt OCR & bill photo scanning via Gemini Vision / Firebase Storage (Deferred per user instruction).
-- [ ] Multi-payer split expenses (expenses paid by multiple individuals simultaneously).
-- [ ] Archiving and freezing settled spaces.
-- [ ] Push notifications via Firebase Cloud Messaging (FCM).
