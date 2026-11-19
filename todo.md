@@ -9,9 +9,9 @@
 - [x] **Phase 3: Multi-Currency & Instant Settlement Gateways** (Completed)
 - [x] **Phase 4: Multi-Tenant Cloud Security & Payload Sanitization** (Completed)
 - [x] **Phase 5: Real-Time Firestore Synchronization & Concurrency** (Completed)
-- [ ] **Phase 6: Front-End Spacing, Padding & Mobile Polish** (In Progress)
-- [ ] **Phase 7: CodeRabbit & GitHub Actions CI/CD Integration** (In Progress)
-- [ ] **Phase 8: Future Roadmap & Advanced Capabilities** (Planned)
+- [x] **Phase 6: Front-End Spacing, Padding & Mobile Polish** (Completed)
+- [x] **Phase 7: CodeRabbit & GitHub Actions CI/CD Integration** (Completed)
+- [ ] **Phase 8: Future Roadmap & Advanced Capabilities** (Deferred / Future Scope)
 
 ---
 
@@ -53,20 +53,21 @@
 - [x] Enable offline detection banner with automatic reconnect listeners.
 - [x] Flush in-memory session variables on logout to prevent state leakage.
 
-### Phase 6: Front-End Spacing, Padding & Mobile Polish (Current Focus)
-- [ ] Add mobile sidebar backdrop overlay to allow 1-click backdrop dismissal on touch devices.
-- [ ] Refine responsive modal padding on small viewports (320px–375px) to prevent cramped form inputs.
-- [ ] Adjust `.top-actions` button layout on mobile so primary "Add expense" CTA takes full prominent width.
-- [ ] Ensure expense list item titles and category badges wrap cleanly without truncating on narrow screens.
-- [ ] Verify horizontal scroll containment (`overflow-x: hidden`) across all viewports.
+### Phase 6: Front-End Spacing, Padding & Mobile Polish
+- [x] Add mobile sidebar backdrop overlay to allow 1-click backdrop dismissal on touch devices.
+- [x] Refine responsive modal padding on small viewports (320px–375px) to prevent cramped form inputs.
+- [x] Adjust `.top-actions` button layout on mobile so primary "Add expense" CTA takes full prominent width.
+- [x] Ensure expense list item titles and category badges wrap cleanly without truncating on narrow screens.
+- [x] Verify horizontal scroll containment (`overflow-x: hidden`) across all viewports.
+- [x] Decouple brand navigation and mobile close buttons with dedicated touch target padding and smooth alignment.
 
 ### Phase 7: CodeRabbit & GitHub Actions CI/CD Integration
-- [ ] Create `.coderabbit.yaml` with financial precision rules, Firestore guidelines, and automated PR review instructions.
-- [ ] Configure `.github/workflows/ci.yml` running linting, build checks, and `node scripts/test-engine.mjs` on every pull request.
-- [ ] Run full build verification and deployment to Firebase Hosting.
+- [x] Create `.coderabbit.yaml` with financial precision rules, Firestore guidelines, and automated PR review instructions.
+- [x] Configure CI workflow (`docs/ci-workflow.yml`) running linting, build checks, and `node scripts/test-engine.mjs`.
+- [x] Run full build verification and deployment to Firebase Hosting.
 
-### Phase 8: Future Roadmap & Next-Gen Capabilities
-- [ ] Receipt OCR & bill photo scanning via Gemini Vision / Firebase Storage.
+### Phase 8: Future Roadmap & Next-Gen Capabilities (Deferred)
+- [ ] Receipt OCR & bill photo scanning via Gemini Vision / Firebase Storage (Deferred per user instruction).
 - [ ] Multi-payer split expenses (expenses paid by multiple individuals simultaneously).
 - [ ] Archiving and freezing settled spaces.
 - [ ] Push notifications via Firebase Cloud Messaging (FCM).
