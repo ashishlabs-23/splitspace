@@ -29,6 +29,35 @@ async function run() {
   const title = root.body.match(/<title>(.*?)<\/title>/)?.[1] || '';
   console.log(`   Page Title: "${title}"`);
 
+  // Verify HTTP Security Headers
+  console.log('\n1.1 Verifying HTTP Edge Security Headers...');
+  const secHeaders = [
+    { key: 'content-security-policy', label: 'Content-Security-Policy' },
+    { key: 'strict-transport-security', label: 'Strict-Transport-Security' },
+    { key: 'x-frame-options', label: 'X-Frame-Options' },
+    { key: 'x-content-type-options', label: 'X-Content-Type-Options' },
+    { key: 'referrer-policy', label: 'Referrer-Policy' },
+    { key: 'permissions-policy', label: 'Permissions-Policy' },
+    { key: 'cross-origin-opener-policy', label: 'Cross-Origin-Opener-Policy' },
+  ];
+  let allSecOk = true;
+  for (const h of secHeaders) {
+    const val = root.headers[h.key];
+    if (val) {
+      console.log(`   ✅ ${h.label}: Present (${val.substring(0, 40)}...)`);
+    } else {
+      console.log(`   ⚠️ ${h.label}: Not returned on root`);
+      allSecOk = false;
+    }
+  }
+
+  // Verify Mobile Viewport & Responsive Tag
+  console.log('\n1.2 Verifying Mobile Viewport & Responsive Markup...');
+  const hasViewport = /<meta name="viewport" content="[^"]*width=device-width[^"]*"/.test(root.body);
+  console.log(`   Mobile Viewport Meta Tag: ${hasViewport ? '✅ PASSED (width=device-width)' : '❌ FAILED'}`);
+  const hasInitialMarkup = root.body.includes('auth-page') || root.body.includes('landing-page');
+  console.log(`   Initial App Shell Root: ${hasInitialMarkup ? '✅ PASSED' : '❌ FAILED'}`);
+
   // 2. Discover Assets
   console.log('\n2. Verifying static assets and JS chunks...');
   const scriptRegex = /src="([^"]+?\.js)"/g;

@@ -122,16 +122,44 @@ async function deploy() {
     hashToPath[f.hash] = f.fullPath;
   }
 
-  console.log('✨ Creating new Firebase Hosting version...');
+  console.log('✨ Creating new Firebase Hosting version with security headers...');
+  
+  // Load and transform headers from firebase.json for Hosting REST API
+  let hostingHeaders = [];
+  try {
+    const fbConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'firebase.json'), 'utf8'));
+    if (fbConfig.hosting?.headers) {
+      hostingHeaders = fbConfig.hosting.headers.map((h) => {
+        const headerMap = {};
+        for (const item of h.headers || []) {
+          headerMap[item.key] = item.value;
+        }
+        return {
+          glob: h.source,
+          headers: headerMap,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('Could not parse firebase.json headers:', err);
+  }
+
+  const versionConfig = {
+    rewrites: [
+      { glob: '**', path: '/index.html' }
+    ]
+  };
+
+  if (hostingHeaders.length > 0) {
+    versionConfig.headers = hostingHeaders;
+    console.log(`🔒 Injected ${hostingHeaders.length} security header rules from firebase.json.`);
+  }
+
   const versionResp = await httpsRequest(
     `https://firebasehosting.googleapis.com/v1beta1/sites/${PROJECT_ID}/versions`,
     'POST',
     {
-      config: {
-        rewrites: [
-          { glob: '**', path: '/index.html' }
-        ]
-      }
+      config: versionConfig
     },
     { Authorization: `Bearer ${token}` }
   );

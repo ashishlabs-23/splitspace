@@ -558,3 +558,100 @@ test('Case 1.14: Multi-Payer Split Expense (Co-payments by multiple members)', (
   assert.equal(toBob.from_member.id, 'm3');
   assert.equal(toBob.amount, 10.00);
 });
+
+
+test('Case 1.15: Exact Percentage Split with Cent Rounding ($100 across 3 members)', () => {
+  const space = {
+    members: [
+      { id: 'm1', name: 'Alice' },
+      { id: 'm2', name: 'Bob' },
+      { id: 'm3', name: 'Charlie' },
+    ]
+  };
+
+  // Alice pays $100. Exact splits: 33.34, 33.33, 33.33
+  const expenses = [
+    {
+      id: 'e1',
+      amount: 100.00,
+      paid_by: { id: 'm1', name: 'Alice' },
+      split_mode: 'exact',
+      splits: [
+        { user_id: 'm1', amount: 33.34 },
+        { user_id: 'm2', amount: 33.33 },
+        { user_id: 'm3', amount: 33.33 },
+      ],
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+  assert.equal(summary.total_spent, 100.00);
+
+  const b1 = summary.member_balances.find(b => b.member.id === 'm1');
+  const b2 = summary.member_balances.find(b => b.member.id === 'm2');
+  const b3 = summary.member_balances.find(b => b.member.id === 'm3');
+
+  assert.equal(b1.net_balance, 66.66);
+  assert.equal(b2.net_balance, -33.33);
+  assert.equal(b3.net_balance, -33.33);
+
+  // Total net zero check:
+  const sumNet = summary.member_balances.reduce((acc, mb) => acc + mb._netCents, 0);
+  assert.equal(sumNet, 0);
+});
+
+test('Case 1.16: Currency Exchange Rate Precision (JPY 15,000 -> USD at 0.00666667)', () => {
+  const space = {
+    currency: 'USD',
+    members: [
+      { id: 'm1', name: 'Alice' },
+      { id: 'm2', name: 'Bob' },
+    ]
+  };
+
+  const rawJpy = 15000;
+  const rate = 0.00666667;
+  const convertedUsd = Math.round(rawJpy * rate * 100) / 100; // 100.00
+
+  const expenses = [
+    {
+      id: 'e1',
+      amount: convertedUsd,
+      original_amount: rawJpy,
+      original_currency: 'JPY',
+      exchange_rate: rate,
+      paid_by: { id: 'm1', name: 'Alice' },
+      split_mode: 'equal',
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+  assert.equal(summary.total_spent, 100.00);
+  assert.equal(summary.settlements.length, 1);
+  assert.equal(summary.settlements[0].amount, 50.00);
+  assert.equal(summary.settlements[0].from_member.id, 'm2');
+  assert.equal(summary.settlements[0].to_member.id, 'm1');
+});
+
+test('Case 1.17: Solo Space Self-Expense Generates 0 Debt Settlements', () => {
+  const space = {
+    currency: 'INR',
+    members: [
+      { id: 'm1', name: 'Solo Explorer' },
+    ]
+  };
+
+  const expenses = [
+    {
+      id: 'e1',
+      amount: 5000.00,
+      paid_by: { id: 'm1', name: 'Solo Explorer' },
+      split_mode: 'equal',
+    }
+  ];
+
+  const summary = computeSummary(space, expenses, []);
+  assert.equal(summary.total_spent, 5000.00);
+  assert.equal(summary.settlements.length, 0);
+  assert.equal(summary.member_balances[0].net_balance, 0);
+});

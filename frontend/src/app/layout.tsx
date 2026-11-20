@@ -7,11 +7,10 @@ import { ToastProvider } from "@/components/smoothui/toast";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const viewport: Viewport = {
-  themeColor: "#0f766e",
+  themeColor: "#c87e0a",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
 };
 
 export const metadata: Metadata = {
@@ -28,9 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body suppressHydrationWarning>
         <ToastProvider>{children}</ToastProvider>

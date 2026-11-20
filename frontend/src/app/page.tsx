@@ -12,6 +12,7 @@ import { useShortcuts } from "@/lib/useShortcuts";
 import { formatMoney } from "@/lib/currencies";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { listenToForegroundNotifications } from "@/lib/fcm";
+import { isValidInviteToken, isValidSpaceId } from "@/lib/security";
 
 const DEMO_SPACE: Space = {
   id: "demo-space-goa",
@@ -189,7 +190,9 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       let token = params.get("join");
       const spaceParam = params.get("space");
-      if (spaceParam) setActiveId(spaceParam);
+      if (spaceParam && isValidSpaceId(spaceParam)) {
+        setActiveId(spaceParam);
+      }
 
       if (!token) {
         // Support /invite/TOKEN, /join/TOKEN paths
@@ -204,7 +207,9 @@ export default function Home() {
         if (hashMatch) token = hashMatch[1];
       }
 
-      if (token) setJoinToken(token);
+      if (token && isValidInviteToken(token)) {
+        setJoinToken(token);
+      }
     }
   }, []);
 
@@ -418,8 +423,8 @@ export default function Home() {
   if (authLoading) {
     return (
       <div className="auth-page">
-        <div style={{ textAlign: "center", color: "#0f766e" }}>
-          <div className="btn-spinner" style={{ width: 32, height: 32, margin: "0 auto 16px", borderColor: "#0f766e", borderTopColor: "transparent" }} />
+        <div style={{ textAlign: "center", color: "#c87e0a" }}>
+          <div className="btn-spinner" style={{ width: 32, height: 32, margin: "0 auto 16px", borderColor: "#c87e0a", borderTopColor: "transparent" }} />
           <div style={{ fontWeight: 600, fontSize: 15 }}>Loading SplitSpace…</div>
         </div>
       </div>

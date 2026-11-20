@@ -2352,8 +2352,14 @@ html, body {
   -webkit-text-size-adjust: 100%;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   /* Prevent horizontal overflow on mobile landing sections */
+  .landing-page {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
   .landing-page header,
   .landing-page section,
   .landing-page footer {
@@ -2361,20 +2367,43 @@ html, body {
     padding-right: 16px !important;
     max-width: 100vw !important;
     box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   /* Force multi-column bento & feature grids to single-column on mobile */
+  .landing-page .bento-grid,
+  .landing-page .how-it-works-grid,
+  .landing-page .pipeline-grid,
+  .landing-page .metrics-grid,
+  .landing-page .shortcuts-grid,
+  .landing-page [class*="max-md:!grid-cols-1"],
   div[style*="grid-template-columns: repeat(12"],
   div[style*="gridTemplateColumns: \"repeat(12"],
+  div[style*="grid-template-columns: repeat(4"],
+  div[style*="gridTemplateColumns: \"repeat(4"],
+  div[style*="grid-template-columns: repeat(3"],
+  div[style*="gridTemplateColumns: \"repeat(3"],
   div[style*="grid-template-columns: 1fr 1fr"],
-  div[style*="gridTemplateColumns: \"1fr 1fr\""] {
+  div[style*="gridTemplateColumns: \"1fr 1fr\""],
+  div[style*="grid-template-columns: 1fr 1fr 1fr"],
+  div[style*="gridTemplateColumns: \"1fr 1fr 1fr\""] {
     grid-template-columns: 1fr !important;
-    gap: 12px !important;
+    gap: 14px !important;
+  }
+
+  /* 2-col tech stack badges on mobile */
+  .landing-page .tech-stack-grid,
+  div[class*="max-md:!grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
 
   /* Make grid spans take full width on mobile */
+  .landing-page div[style*="grid-column: span"],
+  .landing-page div[style*="gridColumn: \"span"],
   div[style*="grid-column: span"],
-  div[style*="gridColumn: \"span"] {
+  div[style*="gridColumn: \"span"],
+  [class*="max-md:!col-span-"] {
     grid-column: 1 / -1 !important;
   }
 
@@ -2384,19 +2413,49 @@ html, body {
   }
 
   /* Hero adjustments for landing page on mobile */
+  .landing-page .hero-headline,
   .landing-page h1,
   .hero-title {
-    font-size: clamp(28px, 8vw, 40px) !important;
-    line-height: 1.18 !important;
+    font-size: clamp(28px, 8vw, 42px) !important;
+    line-height: 1.15 !important;
   }
 
   /* Stack hero content vertically on mobile */
+  .landing-page .hero-section,
   .landing-page section:first-of-type,
   .hero {
     flex-direction: column !important;
+    padding-top: 28px !important;
+    padding-bottom: 36px !important;
+    gap: 20px !important;
+  }
+
+  .landing-page .hero-cta-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+
+  .landing-page .hero-cta-group button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-page header {
+    padding: 16px 14px !important;
+  }
+
+  .landing-page section {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
     padding-top: 24px !important;
     padding-bottom: 32px !important;
-    gap: 20px !important;
+  }
+
+  .landing-page .tech-stack-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

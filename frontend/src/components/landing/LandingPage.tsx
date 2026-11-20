@@ -275,6 +275,7 @@ export function LandingPage({
 
   return (
     <div
+      className="landing-page"
       style={{
         position: "relative",
         minHeight: "100vh",
@@ -690,6 +691,7 @@ export function LandingPage({
 
       {/* ── 2. EDITORIAL HERO SECTION WITH MOTION REVEALS ── */}
       <section
+        className="hero-section"
         style={{
           position: "relative",
           zIndex: 10,
@@ -742,6 +744,7 @@ export function LandingPage({
 
           {/* Editorial Headline */}
           <motion.h1
+            className="hero-headline"
             variants={heroItemVariants}
             style={{
               fontFamily: "'Fraunces', Georgia, serif",
@@ -773,6 +776,7 @@ export function LandingPage({
 
           {/* Call to Action Buttons */}
           <motion.div
+            className="hero-cta-group"
             variants={heroItemVariants}
             style={{
               display: "flex",
@@ -1071,6 +1075,7 @@ export function LandingPage({
 
         {/* Bento Grid */}
         <motion.div
+          className="bento-grid"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -1468,6 +1473,7 @@ export function LandingPage({
         </motion.div>
 
         <motion.div
+          className="how-it-works-grid max-md:!grid-cols-1"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -1477,7 +1483,6 @@ export function LandingPage({
             gridTemplateColumns: "repeat(3, 1fr)",
             gap: 24,
           }}
-          className="max-md:!grid-cols-1"
         >
           {/* Step 1 */}
           <motion.div
@@ -1703,12 +1708,12 @@ export function LandingPage({
 
                 {/* 4 Pipeline Stages */}
                 <div
+                  className="pipeline-grid max-md:!grid-cols-1"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(4, 1fr)",
                     gap: 16,
                   }}
-                  className="max-md:!grid-cols-1"
                 >
                   {/* Stage 1 */}
                   <div
@@ -1855,6 +1860,7 @@ export function LandingPage({
 
               {/* Core Architecture Matrix */}
               <div
+                className="metrics-grid max-md:!grid-cols-1"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
@@ -1862,7 +1868,6 @@ export function LandingPage({
                   borderTop: "1px solid rgba(224, 86, 46, 0.15)",
                   paddingTop: 24,
                 }}
-                className="max-md:!grid-cols-1"
               >
                 <div style={{ display: "flex", gap: 12 }}>
                   <div
@@ -2241,12 +2246,12 @@ export function LandingPage({
 
         {/* Tech Stack Metric Badges */}
         <div
+          className="tech-stack-grid max-md:!grid-cols-2"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: 16,
           }}
-          className="max-md:!grid-cols-2"
         >
           <div
             style={{
@@ -2918,7 +2923,7 @@ export function LandingPage({
                 <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "#64748b", letterSpacing: "0.06em", marginBottom: 10 }}>
                   Lightning Shortcuts
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, fontSize: 12 }}>
+                <div className="shortcuts-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, fontSize: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", color: "#334155" }}>
                     <span>Add Expense:</span> <kbd style={{ background: "#e2e8f0", padding: "2px 7px", borderRadius: 4, fontWeight: 700, fontSize: 11 }}>E</kbd>
                   </div>
